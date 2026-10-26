@@ -1,0 +1,423 @@
+import {
+  ShiftId,
+  ShiftInfo,
+  ImpactType,
+  ImpactScope,
+  ImpactConfirmationStatus,
+  EventImpactItem,
+} from './types';
+
+export const SHIFTS: ShiftInfo[] = [
+  { id: 'SHIFT_A', name: 'Ca A', startHour: 6, endHour: 14, displayTime: '06:00 - 14:00' },
+  { id: 'SHIFT_B', name: 'Ca B', startHour: 14, endHour: 22, displayTime: '14:00 - 22:00' },
+  { id: 'SHIFT_C', name: 'Ca C', startHour: 22, endHour: 6, displayTime: '22:00 - 06:00 (hôm sau)' },
+];
+
+/**
+ * Calculates CBTO Production Date (Ngày sản xuất):
+ * Từ 06:00 ngày D đến trước 06:00 ngày D+1.
+ * Trả về chuỗi YYYY-MM-DD.
+ */
+export function getProductionDate(dateInput: Date | string = new Date()): string {
+  const d = new Date(dateInput);
+  // Subtract 6 hours to shift the cut-off from midnight to 06:00
+  const adjusted = new Date(d.getTime() - 6 * 60 * 60 * 1000);
+  const year = adjusted.getFullYear();
+  const month = String(adjusted.getMonth() + 1).padStart(2, '0');
+  const day = String(adjusted.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Determines current Shift based on hour of day
+ */
+export function getCurrentShift(dateInput: Date | string = new Date()): ShiftId {
+  const d = new Date(dateInput);
+  const hour = d.getHours();
+  if (hour >= 6 && hour < 14) return 'SHIFT_A';
+  if (hour >= 14 && hour < 22) return 'SHIFT_B';
+  return 'SHIFT_C';
+}
+
+/**
+ * Formats ISO string or Date to Vietnamese readable format
+ */
+export function formatTime(dateInput: Date | string): string {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+export function formatDateTime(dateInput: Date | string): string {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '--:-- --/--';
+  return `${formatTime(d)} ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function formatDateVN(dateInput: Date | string): string {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '--/--/----';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+/**
+ * Split interval over 06:00 boundary for AC-05
+ * Returns map of productionDate -> minutes
+ */
+export function splitLossByProductionDate(
+  startIso: string,
+  endIso: string
+): { [prodDate: string]: number } {
+  const start = new Date(startIso).getTime();
+  const end = new Date(endIso).getTime();
+  if (end <= start) return {};
+
+  const result: { [prodDate: string]: number } = {};
+  
+  // Step in 1-minute increments or boundary jumps
+  let current = start;
+  while (current < end) {
+    const prodDate = getProductionDate(new Date(current));
+    // Determine the next 06:00 boundary in ms
+    const curDateObj = new Date(current);
+    // Find next 06:00
+    const boundary = new Date(curDateObj);
+    if (boundary.getHours() < 6) {
+      boundary.setHours(6, 0, 0, 0);
+    } else {
+      boundary.setDate(boundary.getDate() + 1);
+      boundary.setHours(6, 0, 0, 0);
+    }
+    const boundaryTime = boundary.getTime();
+    const nextHop = Math.min(end, boundaryTime);
+    const durationMinutes = (nextHop - current) / (1000 * 60);
+
+    result[prodDate] = (result[prodDate] || 0) + durationMinutes;
+    current = nextHop;
+  }
+
+  return result;
+}
+
+/**
+ * Calculates non-overlapping line stoppage minutes for AC-06
+ * Merges overlapping intervals [start, end]
+ */
+export function calculateNonOverlappingMinutes(
+  intervals: { start: string; end: string | null }[],
+  nowMs: number = Date.now()
+): number {
+  if (intervals.length === 0) return 0;
+
+  // Convert to [startMs, endMs]
+  const validIntervals: [number, number][] = intervals
+    .map((item) => {
+      const s = new Date(item.start).getTime();
+      const e = item.end ? new Date(item.end).getTime() : nowMs;
+      return [s, Math.max(s, e)] as [number, number];
+    })
+    .filter(([s, e]) => !isNaN(s) && !isNaN(e) && e >= s)
+    .sort((a, b) => a[0] - b[0]);
+
+  if (validIntervals.length === 0) return 0;
+
+  // Merge overlapping
+  const merged: [number, number][] = [];
+  let [currStart, currEnd] = validIntervals[0];
+
+  for (let i = 1; i < validIntervals.length; i++) {
+    const [nextStart, nextEnd] = validIntervals[i];
+    if (nextStart <= currEnd) {
+      // Overlapping or adjacent
+      currEnd = Math.max(currEnd, nextEnd);
+    } else {
+      merged.push([currStart, currEnd]);
+      currStart = nextStart;
+      currEnd = nextEnd;
+    }
+  }
+  merged.push([currStart, currEnd]);
+
+  // Sum merged durations in minutes
+  const totalMs = merged.reduce((acc, [s, e]) => acc + (e - s), 0);
+  return Math.round(totalMs / (1000 * 60));
+}
+
+/**
+ * Runtime threshold calculation
+ */
+export interface RuntimeStatusInfo {
+  elapsedHours: number;
+  remainingHours: number;
+  usagePercent: number;
+  expectedCipTime: string;
+  badgeLevel: 'NORMAL' | 'NOTICE' | 'WARNING' | 'DUE' | 'OVERDUE' | 'INSUFFICIENT';
+  badgeLabel: string;
+  badgeColorClass: string;
+}
+
+export function computeRuntimeStatus(
+  startedAt?: string | null,
+  limitHours?: number | null,
+  stoppedAt?: string | null,
+  nowInput: Date | number = Date.now()
+): RuntimeStatusInfo {
+  if (!startedAt || !limitHours || limitHours <= 0) {
+    return {
+      elapsedHours: 0,
+      remainingHours: 0,
+      usagePercent: 0,
+      expectedCipTime: '--',
+      badgeLevel: 'INSUFFICIENT',
+      badgeLabel: 'Chưa đủ dữ liệu',
+      badgeColorClass: 'text-slate-400 bg-slate-800/80 border-slate-700',
+    };
+  }
+
+  const startMs = new Date(startedAt).getTime();
+  const endMs = stoppedAt ? new Date(stoppedAt).getTime() : (typeof nowInput === 'number' ? nowInput : nowInput.getTime());
+  const elapsedMs = Math.max(0, endMs - startMs);
+  const elapsedHours = +(elapsedMs / (1000 * 60 * 60)).toFixed(1);
+  const remainingHours = +(limitHours - elapsedHours).toFixed(1);
+  const usagePercent = +((elapsedHours / limitHours) * 100).toFixed(1);
+
+  const expCipDate = new Date(startMs + limitHours * 3600 * 1000);
+  const expectedCipTime = formatDateTime(expCipDate);
+
+  if (usagePercent > 100) {
+    return {
+      elapsedHours,
+      remainingHours,
+      usagePercent,
+      expectedCipTime,
+      badgeLevel: 'OVERDUE',
+      badgeLabel: `Quá hạn CIP (+${Math.abs(remainingHours)}h)`,
+      badgeColorClass: 'text-rose-400 bg-rose-500/15 border-rose-500/40',
+    };
+  }
+
+  if (usagePercent === 100 || remainingHours === 0) {
+    return {
+      elapsedHours,
+      remainingHours: 0,
+      usagePercent: 100,
+      expectedCipTime,
+      badgeLevel: 'DUE',
+      badgeLabel: 'Đến hạn CIP — còn 0 giờ',
+      badgeColorClass: 'text-orange-400 bg-orange-500/15 border-orange-500/40',
+    };
+  }
+
+  if (usagePercent >= 90) {
+    return {
+      elapsedHours,
+      remainingHours,
+      usagePercent,
+      expectedCipTime,
+      badgeLevel: 'WARNING',
+      badgeLabel: `Sắp đến hạn CIP (${usagePercent}%)`,
+      badgeColorClass: 'text-orange-400 bg-orange-500/15 border-orange-500/40',
+    };
+  }
+
+  if (usagePercent >= 80) {
+    return {
+      elapsedHours,
+      remainingHours,
+      usagePercent,
+      expectedCipTime,
+      badgeLevel: 'NOTICE',
+      badgeLabel: `Lưu ý Runtime (${usagePercent}%)`,
+      badgeColorClass: 'text-amber-400 bg-amber-500/15 border-amber-500/40',
+    };
+  }
+
+  return {
+    elapsedHours,
+    remainingHours,
+    usagePercent,
+    expectedCipTime,
+    badgeLevel: 'NORMAL',
+    badgeLabel: `Bình thường (${usagePercent}%)`,
+    badgeColorClass: 'text-emerald-400 bg-emerald-500/15 border-emerald-500/40',
+  };
+}
+
+// ----------------------------------------------------
+// Operational Impact & Converted Loss Helpers
+// ----------------------------------------------------
+
+export const IMPACT_TYPE_DEFINITIONS: Record<
+  ImpactType,
+  { label: string; defaultScope: ImpactScope; description: string }
+> = {
+  NONE: {
+    label: 'Không ảnh hưởng vận hành',
+    defaultScope: 'Khác',
+    description: 'Sự cố ghi nhận để phân tích nguyên nhân, mức ảnh hưởng 0%, Loss quy đổi 0 phút',
+  },
+  REDUCE_COOK_CAPACITY: {
+    label: 'Giảm năng lực nấu',
+    defaultScope: 'Nấu',
+    description: 'Một phần thiết bị nấu dừng hoặc giảm tốc độ gia nhiệt/phối trộn',
+  },
+  STOP_COOK: {
+    label: 'Dừng nấu',
+    defaultScope: 'Nấu',
+    description: 'Toàn bộ cụm bồn nấu dừng hoạt động hoàn toàn (100%)',
+  },
+  STOP_FEED_PACKING: {
+    label: 'Dừng cấp tương cho ĐG',
+    defaultScope: 'Cấp tương',
+    description: 'Nghẽn bơm/đường ống chuyển tương, không tự suy diễn dừng Đóng gói',
+  },
+  COOLING_BUFFER_CONGESTION: {
+    label: 'Ứ bồn làm nguội',
+    defaultScope: 'Cấp tương',
+    description: 'Tương tích lũy tại làm nguội; nếu chưa có tỷ lệ ảnh hưởng thì chưa đủ dữ liệu tính Loss',
+  },
+  STOP_PACKING: {
+    label: 'Dừng đóng gói',
+    defaultScope: 'Đóng gói',
+    description: 'Máy chiết rót, đóng nắp, dán nhãn hoặc đóng thùng dừng hoàn toàn',
+  },
+  REDUCE_PACKING_SPEED: {
+    label: 'Giảm tốc đóng gói',
+    defaultScope: 'Đóng gói',
+    description: 'Dây chuyền đóng gói chạy chậm hơn định mức thiết kế',
+  },
+};
+
+export function getImpactLabel(type: ImpactType): string {
+  return IMPACT_TYPE_DEFINITIONS[type]?.label || type;
+}
+
+export function getImpactScope(type: ImpactType): ImpactScope {
+  return IMPACT_TYPE_DEFINITIONS[type]?.defaultScope || 'Khác';
+}
+
+export function getImpactStatusBadge(status: ImpactConfirmationStatus): {
+  label: string;
+  badgeClass: string;
+} {
+  switch (status) {
+    case 'CONFIRMED':
+      return {
+        label: 'Đã xác nhận',
+        badgeClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+      };
+    case 'PROVISIONAL':
+      return {
+        label: 'Tạm tính (Đang diễn ra)',
+        badgeClass: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+      };
+    case 'INSUFFICIENT_DATA':
+      return {
+        label: 'Chưa đủ dữ liệu',
+        badgeClass: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+      };
+    case 'UNREVIEWED':
+      return {
+        label: 'Chưa rà soát',
+        badgeClass: 'text-slate-400 bg-slate-500/10 border-slate-500/30',
+      };
+    default:
+      return {
+        label: status,
+        badgeClass: 'text-slate-400 bg-slate-500/10 border-slate-500/30',
+      };
+  }
+}
+
+/**
+ * Calculates Duration and Converted Loss (Loss quy đổi) for an impact item
+ * Formula: Converted Loss (phút) = Actual Duration (phút) * Impact Percent (%) / 100
+ */
+export function calculateImpactMetrics(
+  impact: {
+    impactType: ImpactType;
+    impactStartedAt: string;
+    impactEndedAt: string | null;
+    impactPercent: number | null;
+    confirmationStatus?: ImpactConfirmationStatus;
+  },
+  nowMs: number = Date.now()
+): {
+  durationMinutes: number;
+  convertedLossMinutes: number | null;
+  status: ImpactConfirmationStatus;
+} {
+  const startMs = new Date(impact.impactStartedAt).getTime();
+  const isOngoing = !impact.impactEndedAt;
+  const endMs = isOngoing ? nowMs : new Date(impact.impactEndedAt!).getTime();
+  const rawDuration = Math.max(0, (endMs - startMs) / 60000);
+  const durationMinutes = Math.round(rawDuration);
+
+  // Status deduction
+  let status: ImpactConfirmationStatus = impact.confirmationStatus || (isOngoing ? 'PROVISIONAL' : 'CONFIRMED');
+
+  if (impact.impactType === 'NONE') {
+    return {
+      durationMinutes,
+      convertedLossMinutes: 0,
+      status: isOngoing ? 'PROVISIONAL' : 'CONFIRMED',
+    };
+  }
+
+  if (impact.impactType === 'COOLING_BUFFER_CONGESTION' && (impact.impactPercent === null || impact.impactPercent === undefined)) {
+    return {
+      durationMinutes,
+      convertedLossMinutes: null, // "Chưa đủ dữ liệu"
+      status: 'INSUFFICIENT_DATA',
+    };
+  }
+
+  if (impact.impactPercent === null || impact.impactPercent === undefined) {
+    return {
+      durationMinutes,
+      convertedLossMinutes: null,
+      status: 'INSUFFICIENT_DATA',
+    };
+  }
+
+  // Exact converted loss (floating point before rounded display)
+  const convertedLossExact = (rawDuration * impact.impactPercent) / 100;
+  const convertedLossMinutes = Math.round(convertedLossExact);
+
+  return {
+    durationMinutes,
+    convertedLossMinutes,
+    status,
+  };
+}
+
+/**
+ * Calculates sum of converted loss for a list of impacts, grouped by scope.
+ * Prevents naive cross-scope summation.
+ */
+export function calculateScopeLossMetrics(
+  impacts: EventImpactItem[],
+  nowMs: number = Date.now()
+): Record<ImpactScope, { totalDurationMinutes: number; totalConvertedLossMinutes: number; hasInsufficientData: boolean }> {
+  const scopes: Record<ImpactScope, { totalDurationMinutes: number; totalConvertedLossMinutes: number; hasInsufficientData: boolean }> = {
+    'Nấu': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
+    'Cấp tương': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
+    'Đóng gói': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
+    'Khác': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
+  };
+
+  impacts.forEach((imp) => {
+    const scope = imp.impactScope || getImpactScope(imp.impactType);
+    const metrics = calculateImpactMetrics(imp, nowMs);
+    scopes[scope].totalDurationMinutes += metrics.durationMinutes;
+
+    if (metrics.convertedLossMinutes !== null) {
+      scopes[scope].totalConvertedLossMinutes += metrics.convertedLossMinutes;
+    } else {
+      scopes[scope].hasInsufficientData = true;
+    }
+  });
+
+  return scopes;
+}
+

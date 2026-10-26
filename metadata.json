@@ -1,0 +1,8 @@
+{
+  "name": "CBTO Shopfloor Operations Web App",
+  "description": "Ứng dụng điều hành sản xuất hiện trường CBTO: Sản lượng, Loss, Runtime & CIP, AM, Bất thường, Nhật ký, Giao ca và Lịch làm việc.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
