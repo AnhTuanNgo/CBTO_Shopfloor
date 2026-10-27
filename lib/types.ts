@@ -231,6 +231,7 @@ export interface CIPTracking {
   plantId: string;
   lineId: string;
   runtimeId: string;
+  linkedLossId?: string;
   cipStartedAt: string; // ISO
   cipCompletedAt: string | null;
   samplingStartedAt: string | null;

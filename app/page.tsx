@@ -53,7 +53,7 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 overflow-x-hidden w-full max-w-full">
+    <div className="min-h-screen flex flex-col bg-[#F5F6F8] text-[#202124] overflow-x-hidden w-full max-w-full">
       {/* Top Header */}
       <Header onTabChange={handleGlobalNavigate} />
 
@@ -68,7 +68,7 @@ function AppContent() {
       />
 
       {/* Main Content Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 pb-20 md:pb-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 pb-24 md:pb-10">
         {activeTab === 'dashboard' && (
           <SupervisorDashboard onNavigateToTab={handleGlobalNavigate} />
         )}
@@ -95,6 +95,11 @@ function AppContent() {
           </div>
         )}
       </main>
+
+      {/* Honest Shopfloor Data Storage Notice (Section 9) */}
+      <footer className="border-t border-gray-200/80 bg-white/80 py-3 px-4 text-center text-xs text-gray-500 hidden md:block">
+        <span className="font-semibold text-gray-700">CBTO Shopfloor Operations</span> · Dữ liệu lưu trên trình duyệt (LocalStorage / Bản thử nghiệm hiện trường FACT)
+      </footer>
     </div>
   );
 }
@@ -110,15 +115,15 @@ export default function Home() {
 
   if (!isMounted) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 p-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-600 font-black text-white text-lg shadow-xl shadow-orange-950/60 animate-pulse">
+      <div className="min-h-screen bg-[#F5F6F8] flex flex-col items-center justify-center text-gray-500 p-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E31837] font-black text-white text-lg shadow-lg shadow-red-200 animate-pulse">
           CB
         </div>
-        <div className="mt-4 text-xs font-bold tracking-wider uppercase text-slate-200">
+        <div className="mt-4 text-xs font-bold tracking-wider uppercase text-gray-800">
           CBTO Shopfloor Operations Web App
         </div>
-        <div className="mt-1 text-[11px] text-slate-500">
-          Đang kết nối hệ thống dữ liệu hiện trường FACT...
+        <div className="mt-1 text-[11px] text-gray-500">
+          Đang khởi tạo giao diện hiện trường...
         </div>
       </div>
     );

@@ -98,8 +98,16 @@ export function KpiModule() {
     const list = Object.entries(map).map(([t, m]) => ({
       name: getImpactLabel(t as ImpactType),
       minutes: m || 0,
-      scope: (allTodayImpacts.find((x) => x.impactType === t)?.impactScope) || 'Chung',
+      scope:
+        t === 'STOP_COOK' || t === 'REDUCE_COOK_CAPACITY'
+          ? 'Nấu'
+          : t === 'STOP_FEED_PACKING'
+          ? 'Cấp tương'
+          : t === 'STOP_PACKING' || t === 'REDUCE_PACKING_SPEED'
+          ? 'Đóng gói'
+          : 'Buffer',
     }));
+
     list.sort((a, b) => b.minutes - a.minutes);
     const grand = list.reduce((acc, i) => acc + i.minutes, 0);
 
@@ -123,10 +131,10 @@ export function KpiModule() {
     }, []);
   }, [allTodayImpacts, nowMs]);
 
-  // Pareto Table 2: 9 Nhóm Nguyên Nhân MVP
+  // Pareto Table 2: 9 Nhóm Nguyên nhân MVP (Thời gian sự cố gốc)
   const paretoCauseTable = useMemo(() => {
     const map: Record<LossGroup, number> = {
-      Breakdown: 0,
+      'Cơ khí': 0,
       'Chờ NVL': 0,
       Utility: 0,
       CIP: 0,
@@ -200,20 +208,24 @@ export function KpiModule() {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="rounded-2xl border border-gray-200/80 bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-orange-400" />
-            <h2 className="text-base font-bold text-white">Chỉ Số Hiệu Suất Shopfloor (KPI)</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-[#E31837]">
+              <BarChart3 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#202124]">Chỉ Số Hiệu Suất Shopfloor (KPI)</h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Tổng hợp dữ liệu sản xuất ngày: <strong>{formatDateVN(selectedProductionDate)}</strong> (Mốc đổi ngày 06:00 sáng)
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Tổng hợp dữ liệu sản xuất ngày: <strong>{formatDateVN(selectedProductionDate)}</strong> (Cut-off 06:00)
-          </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          <span className="rounded bg-slate-800 px-3 py-1 text-slate-300 border border-slate-700 font-medium">
-            Loss theo phạm vi · Tránh cộng trùng
+          <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-700 font-bold border border-gray-200">
+            Loss theo 3 phạm vi độc lập · Không cộng trùng
           </span>
         </div>
       </div>
@@ -221,176 +233,176 @@ export function KpiModule() {
       {/* 4 Cards KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* AM KPI */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 border-b border-slate-800 pb-2">
+        <div className="rounded-3xl border border-gray-200/80 bg-white p-5 space-y-3.5 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#16865B] border-b border-gray-100 pb-2.5">
             <ClipboardCheck className="h-4 w-4" />
             <span>KPI BẢO TRÌ TỰ QUẢN (AM)</span>
           </div>
 
           <div>
-            <span className="text-[11px] text-slate-400">Tỷ lệ hoàn thành checklist ca</span>
+            <span className="text-[11px] text-gray-400 font-medium">Tỷ lệ hoàn thành checklist ca</span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-white font-mono">{amComplianceRate}%</span>
-              <span className="text-xs text-slate-400">({amCompletedCount}/{totalEquipments} máy)</span>
+              <span className="text-3xl font-black text-[#202124] font-mono">{amComplianceRate}%</span>
+              <span className="text-xs text-gray-500">({amCompletedCount}/{totalEquipments} máy)</span>
             </div>
           </div>
 
-          <div className="space-y-1 text-xs pt-1 border-t border-slate-800">
-            <div className="flex justify-between text-slate-300">
+          <div className="space-y-1.5 text-xs pt-1 border-t border-gray-100">
+            <div className="flex justify-between text-gray-600">
               <span>Đạt chuẩn (Pass):</span>
-              <span className="text-emerald-400 font-bold font-mono">{totalPass}</span>
+              <span className="text-[#16865B] font-bold font-mono">{totalPass}</span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Pass Tag (Theo dõi):</span>
-              <span className="text-amber-400 font-bold font-mono">{totalPassTag}</span>
+              <span className="text-[#D97706] font-bold font-mono">{totalPassTag}</span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Bất thường (Fail):</span>
-              <span className="text-rose-400 font-bold font-mono">{totalFail}</span>
+              <span className="text-[#C62828] font-bold font-mono">{totalFail}</span>
             </div>
           </div>
         </div>
 
         {/* Loss KPI - Scope-separated */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-rose-400 border-b border-slate-800 pb-2">
+        <div className="rounded-3xl border border-gray-200/80 bg-white p-5 space-y-3.5 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#E31837] border-b border-gray-100 pb-2.5">
             <ClockAlert className="h-4 w-4" />
-            <span>KPI TỔN THẤT (THEO PHẠM VI)</span>
+            <span>KPI TỔN THẤT (3 PHẠM VI)</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-1 text-center bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+          <div className="grid grid-cols-3 gap-1.5 text-center bg-gray-50 p-2.5 rounded-2xl border border-gray-100">
             <div>
-              <span className="text-[10px] text-sky-400 block font-semibold">Nấu</span>
-              <span className="text-base font-black text-white font-mono">
+              <span className="text-[10px] text-gray-500 block font-bold">Nấu</span>
+              <span className="text-base font-black text-[#202124] font-mono">
                 {scopeMetrics['Nấu'].totalConvertedLossMinutes}m
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-teal-400 block font-semibold">Cấp tương</span>
-              <span className="text-base font-black text-white font-mono">
+              <span className="text-[10px] text-gray-500 block font-bold">Cấp tương</span>
+              <span className="text-base font-black text-[#202124] font-mono">
                 {scopeMetrics['Cấp tương'].totalConvertedLossMinutes}m
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-amber-400 block font-semibold">Đóng gói</span>
-              <span className="text-base font-black text-white font-mono">
+              <span className="text-[10px] text-gray-500 block font-bold">Đóng gói</span>
+              <span className="text-base font-black text-[#202124] font-mono">
                 {scopeMetrics['Đóng gói'].totalConvertedLossMinutes}m
               </span>
             </div>
           </div>
 
-          <div className="space-y-1 text-xs pt-1 border-t border-slate-800">
-            <div className="flex justify-between text-slate-300">
+          <div className="space-y-1.5 text-xs pt-1 border-t border-gray-100">
+            <div className="flex justify-between text-gray-600">
               <span>Dừng nấu (100%):</span>
-              <span className="text-rose-400 font-bold font-mono">{opStats.stopCook}m</span>
+              <span className="text-[#C62828] font-bold font-mono">{opStats.stopCook}m</span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Giảm năng lực nấu:</span>
-              <span className="text-amber-400 font-bold font-mono">{opStats.reduceCook}m</span>
+              <span className="text-[#D97706] font-bold font-mono">{opStats.reduceCook}m</span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Dừng cấp tương ĐG:</span>
-              <span className="text-teal-400 font-bold font-mono">{opStats.stopFeed}m</span>
+              <span className="text-blue-700 font-bold font-mono">{opStats.stopFeed}m</span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Ứ bồn làm nguội:</span>
-              <span className="text-purple-400 font-bold font-mono">{opStats.congestionDuration}m</span>
+              <span className="text-purple-700 font-bold font-mono">{opStats.congestionDuration}m</span>
             </div>
           </div>
         </div>
 
         {/* Runtime KPI */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-orange-400 border-b border-slate-800 pb-2">
+        <div className="rounded-3xl border border-gray-200/80 bg-white p-5 space-y-3.5 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#E31837] border-b border-gray-100 pb-2.5">
             <Flame className="h-4 w-4" />
             <span>KPI RUNTIME CHU KỲ</span>
           </div>
 
           <div>
-            <span className="text-[11px] text-slate-400">Runtime TB các phiên đã chốt</span>
+            <span className="text-[11px] text-gray-400 font-medium">Runtime TB các phiên đã chốt</span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-black text-white font-mono">
+              <span className="text-2xl font-black text-[#202124] font-mono">
                 {avgCompletedRuntimeHours !== null ? `${avgCompletedRuntimeHours}h` : 'Chưa có phiên chốt'}
               </span>
             </div>
           </div>
 
-          <div className="space-y-1 text-xs pt-1 border-t border-slate-800">
-            <div className="flex justify-between text-slate-300">
+          <div className="space-y-1.5 text-xs pt-1 border-t border-gray-100">
+            <div className="flex justify-between text-gray-600">
               <span>Phiên từng đạt &ge; 90%:</span>
-              <span className="text-orange-400 font-bold font-mono">{reached90Runs.length} phiên</span>
+              <span className="text-[#D97706] font-bold font-mono">{reached90Runs.length} phiên</span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Phiên đang chạy:</span>
-              <span className="text-emerald-400 font-bold font-mono">
+              <span className="text-[#16865B] font-bold font-mono">
                 {runtimes.filter((r) => r.status === 'RUNNING').length}
               </span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Đếm phiên:</span>
-              <span className="text-slate-400">Mỗi phiên 1 lần</span>
+              <span className="text-gray-400 font-medium">Mỗi phiên 1 lần</span>
             </div>
           </div>
         </div>
 
         {/* CIP KPI */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-teal-400 border-b border-slate-800 pb-2">
+        <div className="rounded-3xl border border-gray-200/80 bg-white p-5 space-y-3.5 shadow-xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-blue-700 border-b border-gray-100 pb-2.5">
             <RotateCw className="h-4 w-4" />
             <span>KPI VỆ SINH ĐỊNH KỲ (CIP)</span>
           </div>
 
           <div>
-            <span className="text-[11px] text-slate-400">Số chu trình CIP hoàn tất</span>
+            <span className="text-[11px] text-gray-400 font-medium">Số chu trình CIP hoàn tất</span>
             <div className="mt-1 flex items-baseline gap-2">
-              <span className="text-2xl font-black text-teal-400 font-mono">{completedCips.length}</span>
-              <span className="text-xs text-slate-400">chu trình đạt chuẩn</span>
+              <span className="text-2xl font-black text-blue-700 font-mono">{completedCips.length}</span>
+              <span className="text-xs text-gray-500">chu trình đạt</span>
             </div>
           </div>
 
-          <div className="space-y-1 text-xs pt-1 border-t border-slate-800">
-            <div className="flex justify-between text-slate-300">
+          <div className="space-y-1.5 text-xs pt-1 border-t border-gray-100">
+            <div className="flex justify-between text-gray-600">
               <span>Chuyển sang CIP đúng hạn:</span>
-              <span className="text-emerald-400 font-bold font-mono">{onTimeCipCount}</span>
+              <span className="text-[#16865B] font-bold font-mono">{onTimeCipCount}</span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Đang trong giai đoạn:</span>
-              <span className="text-amber-400 font-bold font-mono">
+              <span className="text-[#D97706] font-bold font-mono">
                 {cips.filter((c) => c.status === 'POST_CIP_SAMPLING').length} Post-CIP
               </span>
             </div>
-            <div className="flex justify-between text-slate-300">
+            <div className="flex justify-between text-gray-600">
               <span>Quy ước:</span>
-              <span className="text-slate-400">Post-CIP 60m đếm rời</span>
+              <span className="text-gray-400 font-medium">Post-CIP 60m đếm rời</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Dual Pareto Table Section */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-        <div className="border-b border-slate-800 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div className="rounded-3xl border border-gray-200/80 bg-white shadow-xs overflow-hidden">
+        <div className="border-b border-gray-100 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="font-bold text-slate-200 text-sm">
+            <h3 className="font-bold text-[#202124] text-sm">
               {paretoTableMode === 'IMPACT'
                 ? 'Bảng Dữ Liệu Pareto Ảnh Hưởng Vận Hành Thực Tế (Loss Quy Đổi)'
                 : 'Bảng Dữ Liệu Pareto 9 Nhóm Nguyên Nhân MVP'}
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-gray-500">
               {paretoTableMode === 'IMPACT'
                 ? 'Phân tích tổn thất quy đổi theo từng công đoạn và loại ảnh hưởng'
                 : 'Phân tích thời lượng sự cố gốc theo 9 nhóm chính thức CBTO'}
             </p>
           </div>
 
-          <div className="flex items-center gap-1 rounded-xl bg-slate-800 p-1 border border-slate-700">
+          <div className="flex items-center gap-1.5 rounded-2xl bg-gray-100 p-1 border border-gray-200">
             <button
               type="button"
               onClick={() => setParetoTableMode('IMPACT')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 paretoTableMode === 'IMPACT'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-[#202124] shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               Góc nhìn Ảnh hưởng
@@ -398,10 +410,10 @@ export function KpiModule() {
             <button
               type="button"
               onClick={() => setParetoTableMode('CAUSE')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 paretoTableMode === 'CAUSE'
-                  ? 'bg-amber-500 text-slate-950 font-black shadow'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-[#202124] shadow-xs'
+                  : 'text-gray-500 hover:text-gray-900'
               }`}
             >
               Góc nhìn Nguyên nhân
@@ -410,42 +422,42 @@ export function KpiModule() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="border-b border-slate-800 bg-slate-800/50 text-slate-400">
+          <table className="w-full text-left text-xs text-gray-700">
+            <thead className="border-b border-gray-100 bg-gray-50/70 text-gray-500 font-semibold">
               <tr>
-                <th className="px-4 py-2.5">Thứ hạng</th>
-                <th className="px-4 py-2.5">
+                <th className="px-5 py-3">Thứ hạng</th>
+                <th className="px-5 py-3">
                   {paretoTableMode === 'IMPACT' ? 'Loại Ảnh Hưởng Vận Hành' : 'Nhóm Nguyên Nhân'}
                 </th>
-                <th className="px-4 py-2.5">Phạm vi</th>
-                <th className="px-4 py-2.5 text-right">
+                <th className="px-5 py-3">Phạm vi</th>
+                <th className="px-5 py-3 text-right">
                   {paretoTableMode === 'IMPACT' ? 'Loss quy đổi (phút)' : 'Thời gian sự cố (phút)'}
                 </th>
-                <th className="px-4 py-2.5 text-right">Tỷ trọng (%)</th>
-                <th className="px-4 py-2.5 text-right">Lũy kế (%)</th>
-                <th className="px-4 py-2.5">Đánh giá 80/20</th>
+                <th className="px-5 py-3 text-right">Tỷ trọng (%)</th>
+                <th className="px-5 py-3 text-right">Lũy kế (%)</th>
+                <th className="px-5 py-3">Đánh giá 80/20</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-gray-100">
               {(paretoTableMode === 'IMPACT' ? paretoImpactTable : paretoCauseTable).map((item, idx) => (
-                <tr key={item.name} className="hover:bg-slate-800/30">
-                  <td className="px-4 py-3 font-mono font-bold text-slate-400">#{idx + 1}</td>
-                  <td className="px-4 py-3 font-bold text-white">{item.name}</td>
-                  <td className="px-4 py-3 text-slate-400">{item.scope}</td>
-                  <td className="px-4 py-3 text-right font-mono font-bold text-rose-400">
+                <tr key={item.name} className="hover:bg-gray-50/60 transition-colors">
+                  <td className="px-5 py-3.5 font-mono font-bold text-gray-400">#{idx + 1}</td>
+                  <td className="px-5 py-3.5 font-bold text-[#202124]">{item.name}</td>
+                  <td className="px-5 py-3.5 text-gray-500">{item.scope}</td>
+                  <td className="px-5 py-3.5 text-right font-mono font-bold text-[#C62828]">
                     {item.minutes}m
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-200">{item.rate}%</td>
-                  <td className="px-4 py-3 text-right font-mono font-bold text-orange-400">
+                  <td className="px-5 py-3.5 text-right font-mono font-semibold text-gray-700">{item.rate}%</td>
+                  <td className="px-5 py-3.5 text-right font-mono font-bold text-[#E31837]">
                     {item.cumRate}%
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-5 py-3.5">
                     {item.cumRate <= 80 ? (
-                      <span className="rounded bg-rose-950/80 border border-rose-700/60 px-2 py-0.5 text-[10px] font-bold text-rose-300">
-                        Ưu tiên hàng đầu (80% tổn thất)
+                      <span className="rounded-full bg-red-50 border border-red-200 px-2.5 py-0.5 text-[10px] font-bold text-[#C62828]">
+                        Ưu tiên xử lý (80% tổn thất)
                       </span>
                     ) : (
-                      <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] text-gray-500 font-medium">
                         Thứ yếu
                       </span>
                     )}

@@ -164,7 +164,11 @@ interface AppStoreContextType {
   runtimes: RuntimeTracking[];
   cips: CIPTracking[];
   startProductionRun: (lineId: string, skuId: string) => { success: boolean; message?: string };
-  stopForCIP: (lineId: string, note?: string) => { success: boolean; message?: string };
+  stopForCIP: (
+    lineId: string,
+    note?: string,
+    options?: { autoRecordLoss?: boolean; cipType?: string }
+  ) => { success: boolean; message?: string; cipId?: string; linkedLossId?: string };
   completeCIPCycle: (lineId: string) => { success: boolean; message?: string };
   verifyAndSetReady: (lineId: string) => { success: boolean; message?: string };
   updateSkuLimit: (skuId: string, newHours: number) => void;
@@ -1152,9 +1156,61 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const stopForCIP = useCallback(
-    (lineId: string, note: string = 'Dừng máy chuyển sang chu trình vệ sinh CIP') => {
+    (
+      lineId: string,
+      note: string = 'Dừng máy chuyển sang chu trình vệ sinh CIP',
+      options?: { autoRecordLoss?: boolean; cipType?: string }
+    ) => {
       const nowIso = new Date().toISOString();
       const activeRt = runtimes.find((r) => r.lineId === lineId && r.status === 'RUNNING');
+      const cipType = options?.cipType || 'CIP Full';
+
+      // Auto record Loss log if requested (default: true)
+      let linkedLossId: string | undefined;
+      const shouldRecordLoss = options?.autoRecordLoss !== false;
+
+      if (shouldRecordLoss) {
+        const lineEqs = equipments.filter((e) => e.lineId === lineId);
+        const cipEquip =
+          lineEqs.find((e) => e.name.toLowerCase().includes('cip') || e.category === 'Utility') ||
+          lineEqs[0];
+
+        const lossRes = startLossLog({
+          lineId,
+          skuId: activeRt?.skuId || skus[0]?.id || '',
+          equipmentId: cipEquip?.id || 'EQ_CIP',
+          lossGroup: 'CIP',
+          causeCode: cipType,
+          source: 'CBTO',
+          originStage: 'CIP',
+          description: note,
+          downtimeReason: `Dừng máy thực hiện ${cipType}`,
+          note: `Tự động tạo từ quy trình Dừng máy chuyển sang CIP: ${note}`,
+          affectsLineStop: true,
+          startedAt: nowIso,
+          endedAt: null,
+          impacts: [
+            {
+              impactId: `IMP_${Date.now()}_0`,
+              eventId: '',
+              impactType: 'STOP_COOK',
+              impactScope: 'Nấu',
+              affectedLineId: lineId,
+              affectedStage: 'Nấu',
+              impactStartedAt: nowIso,
+              impactEndedAt: null,
+              impactPercent: 100,
+              convertedLossMinutes: null,
+              confirmationStatus: 'PROVISIONAL',
+              note: `Dừng nấu hoàn toàn để chạy chu trình ${cipType}`,
+            },
+          ],
+        });
+
+        if (lossRes.success && lossRes.log) {
+          linkedLossId = lossRes.log.id;
+        }
+      }
 
       const cipId = `CIP_${lineId}_${Date.now()}`;
       const newCip: CIPTracking = {
@@ -1162,6 +1218,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         plantId: selectedPlantId,
         lineId,
         runtimeId: activeRt ? activeRt.id : '',
+        linkedLossId,
         cipStartedAt: nowIso,
         cipCompletedAt: null,
         samplingStartedAt: null,
@@ -1176,7 +1233,11 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       };
 
       setCips((prev) => {
-        const next = [newCip, ...prev];
+        // Place new active CIP first, and ensure prior non-completed CIPs for this line are settled
+        const next = [
+          newCip,
+          ...prev.filter((c) => !(c.lineId === lineId && (c.status === 'IN_CIP' || c.status === 'POST_CIP_SAMPLING'))),
+        ];
         saveStateToStorage({ cips: next });
         return next;
       });
@@ -1205,12 +1266,12 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         lineId,
         skuId: activeRt?.skuId,
         eventGroup: 'CIP',
-        content: `Bắt đầu chu trình CIP: ${note}`,
+        content: `Bắt đầu chu trình CIP (${cipType}): ${note}`,
       });
 
-      return { success: true };
+      return { success: true, cipId, linkedLossId };
     },
-    [runtimes, selectedPlantId, currentUser, saveStateToStorage, addOperationLog]
+    [runtimes, equipments, skus, selectedPlantId, currentUser, startLossLog, saveStateToStorage, addOperationLog]
   );
 
   const completeCIPCycle = useCallback(
@@ -1236,6 +1297,11 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
 
+      // Automatically end linked Loss log if any
+      if (targetCip.linkedLossId) {
+        endLossLog(targetCip.linkedLossId, nowIso);
+      }
+
       addOperationLog({
         lineId,
         eventGroup: 'CIP',
@@ -1244,7 +1310,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     },
-    [cips, saveStateToStorage, addOperationLog]
+    [cips, endLossLog, saveStateToStorage, addOperationLog]
   );
 
   const verifyAndSetReady = useCallback(

@@ -62,9 +62,9 @@ export function Navigation({
   return (
     <div className="w-full">
       {/* Desktop Top Tabs Navigation */}
-      <div className="hidden md:block border-b border-slate-800 bg-slate-900/60">
+      <div className="hidden md:block border-b border-gray-200/80 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6">
-          <nav className="flex space-x-1 py-1.5">
+          <nav className="flex space-x-1.5 py-2">
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -72,13 +72,13 @@ export function Navigation({
                 <button
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-orange-600/15 text-orange-400 border border-orange-500/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      ? 'bg-red-50 text-[#E31837] shadow-2xs'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className={`h-4 w-4 ${isActive ? 'text-[#E31837]' : 'text-gray-400'}`} />
                   <span>{item.label}</span>
                 </button>
               );
@@ -87,7 +87,7 @@ export function Navigation({
 
           {/* Sub-tabs on desktop if Record or More is active */}
           {activeTab === 'record' && (
-            <div className="flex items-center gap-1 rounded-lg bg-slate-800/80 p-1 border border-slate-700/60">
+            <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1 border border-gray-200/60 shadow-inner">
               {recordSubNav.map((sub) => {
                 const SubIcon = sub.icon;
                 const isSubActive = recordSubTab === sub.id;
@@ -95,13 +95,13 @@ export function Navigation({
                   <button
                     key={sub.id}
                     onClick={() => onRecordSubTabChange(sub.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       isSubActive
-                        ? 'bg-orange-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-white text-gray-900 shadow-xs'
+                        : 'text-gray-500 hover:text-gray-800'
                     }`}
                   >
-                    <SubIcon className="h-3 w-3" />
+                    <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-[#E31837]' : 'text-gray-400'}`} />
                     <span>{sub.label}</span>
                   </button>
                 );
@@ -110,7 +110,7 @@ export function Navigation({
           )}
 
           {activeTab === 'more' && (
-            <div className="flex items-center gap-1 rounded-lg bg-slate-800/80 p-1 border border-slate-700/60">
+            <div className="flex items-center gap-1 rounded-xl bg-gray-100 p-1 border border-gray-200/60 shadow-inner">
               {moreSubNav.map((sub) => {
                 const SubIcon = sub.icon;
                 const isSubActive = moreSubTab === sub.id;
@@ -118,13 +118,13 @@ export function Navigation({
                   <button
                     key={sub.id}
                     onClick={() => onMoreSubTabChange(sub.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       isSubActive
-                        ? 'bg-orange-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-white text-gray-900 shadow-xs'
+                        : 'text-gray-500 hover:text-gray-800'
                     }`}
                   >
-                    <SubIcon className="h-3 w-3" />
+                    <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-[#E31837]' : 'text-gray-400'}`} />
                     <span>{sub.label}</span>
                   </button>
                 );
@@ -135,7 +135,7 @@ export function Navigation({
       </div>
 
       {/* Mobile Sub-tabs Header Bar */}
-      <div className="md:hidden border-b border-slate-800 bg-slate-900/90 px-3 py-2 overflow-x-auto no-scrollbar">
+      <div className="md:hidden border-b border-gray-200/80 bg-white px-3 py-2 overflow-x-auto no-scrollbar">
         {activeTab === 'record' && (
           <div className="flex items-center gap-1.5 min-w-max">
             {recordSubNav.map((sub) => {
@@ -145,13 +145,13 @@ export function Navigation({
                 <button
                   key={sub.id}
                   onClick={() => onRecordSubTabChange(sub.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                     isSubActive
-                      ? 'bg-orange-600 text-white shadow-sm'
-                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-[#E31837] text-white shadow-xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  <SubIcon className="h-3 w-3" />
+                  <SubIcon className="h-3.5 w-3.5" />
                   <span>{sub.label}</span>
                 </button>
               );
@@ -168,13 +168,13 @@ export function Navigation({
                 <button
                   key={sub.id}
                   onClick={() => onMoreSubTabChange(sub.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all cursor-pointer ${
                     isSubActive
-                      ? 'bg-orange-600 text-white shadow-sm'
-                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-[#E31837] text-white shadow-xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  <SubIcon className="h-3 w-3" />
+                  <SubIcon className="h-3.5 w-3.5" />
                   <span>{sub.label}</span>
                 </button>
               );
@@ -183,8 +183,8 @@ export function Navigation({
         )}
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Thumb friendly for operators on phone) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-slate-900/95 backdrop-blur-md px-2 py-1 safe-area-bottom">
+      {/* Mobile Bottom Navigation Bar (Techcombank style bottom navigation with 48px touch targets) */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/98 backdrop-blur-md px-2 py-1 shadow-lg">
         <div className="grid grid-cols-5 gap-1">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
@@ -193,18 +193,18 @@ export function Navigation({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`flex flex-col items-center justify-center py-1.5 text-[10px] font-medium transition-colors ${
-                  isActive ? 'text-orange-400' : 'text-slate-400 hover:text-slate-300'
+                className={`flex flex-col items-center justify-center py-2 text-[10px] font-bold transition-all cursor-pointer min-h-[48px] ${
+                  isActive ? 'text-[#E31837]' : 'text-gray-500 hover:text-gray-800'
                 }`}
               >
                 <div
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-                    isActive ? 'bg-orange-600/20 text-orange-400' : 'text-slate-400'
+                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition-all ${
+                    isActive ? 'bg-red-50 text-[#E31837]' : 'text-gray-500'
                   }`}
                 >
                   <Icon className="h-4 w-4" />
                 </div>
-                <span className="mt-0.5 leading-tight">{item.label}</span>
+                <span className="mt-0.5 leading-tight tracking-tight">{item.label}</span>
               </button>
             );
           })}

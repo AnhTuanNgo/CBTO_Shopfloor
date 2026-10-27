@@ -6,11 +6,13 @@ import { formatDateTime } from '@/lib/date-utils';
 import {
   AlertTriangle,
   Plus,
-  CheckCircle,
+  CheckCircle2,
   Clock,
   Eye,
   Filter,
   Layers,
+  X,
+  AlertCircle,
 } from 'lucide-react';
 
 const COMMON_ABNORMAL_TYPES = [
@@ -75,21 +77,25 @@ export function AbnormalModule() {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-amber-400" />
-            <h2 className="text-base font-bold text-white">Ghi nhận Bất thường Hiện trường</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-[#D97706]">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#202124]">Ghi nhận Bất thường Hiện trường</h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Ghi nhận dấu hiệu bất thường thực tế (dưới 30s) trên {activeLine?.name}. Tinh gọn, không tạo Work Order rườm rà.
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Ghi nhận dấu hiệu bất thường thực tế (dưới 30s) trên {activeLine?.name}. Không tạo Work Order phức tạp.
-          </p>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
           {unacknowledgedCount > 0 && (
-            <div className="flex items-center gap-1.5 rounded-lg bg-amber-950/50 border border-amber-800/60 px-3 py-1.5 text-xs text-amber-300 font-semibold">
-              <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+            <div className="flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs text-[#D97706] font-bold">
+              <span className="h-2 w-2 rounded-full bg-[#D97706] animate-pulse" />
               <span>{unacknowledgedCount} chưa xem</span>
             </div>
           )}
@@ -100,7 +106,7 @@ export function AbnormalModule() {
               setDescription('');
               setIsModalOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-orange-950/40 hover:bg-orange-500 transition-all cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl bg-[#E31837] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-red-700 transition-all cursor-pointer active:scale-95"
           >
             <Plus className="h-4 w-4" />
             <span>Ghi nhận Bất thường</span>
@@ -109,30 +115,36 @@ export function AbnormalModule() {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 text-xs">
-        <span className="text-slate-400 flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-gray-500 font-medium flex items-center gap-1 mr-1">
           <Filter className="h-3.5 w-3.5" /> Lọc trạng thái:
         </span>
         <button
           onClick={() => setFilterType('ALL')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
-            filterType === 'ALL' ? 'bg-orange-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+            filterType === 'ALL'
+              ? 'bg-[#E31837] text-white shadow-xs'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
           }`}
         >
           Tất cả ({abnormalLogs.filter((l) => l.lineId === selectedLineId).length})
         </button>
         <button
           onClick={() => setFilterType('UNACKNOWLEDGED')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
-            filterType === 'UNACKNOWLEDGED' ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+            filterType === 'UNACKNOWLEDGED'
+              ? 'bg-[#D97706] text-white shadow-xs'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
           }`}
         >
           Mới / Chưa xem ({unacknowledgedCount})
         </button>
         <button
           onClick={() => setFilterType('ACKNOWLEDGED')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
-            filterType === 'ACKNOWLEDGED' ? 'bg-slate-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+          className={`px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+            filterType === 'ACKNOWLEDGED'
+              ? 'bg-gray-800 text-white shadow-xs'
+              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
           }`}
         >
           Đã xem
@@ -142,7 +154,7 @@ export function AbnormalModule() {
       {/* Abnormal Logs List */}
       <div className="space-y-3">
         {filteredLogs.length === 0 ? (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-8 text-center text-xs text-slate-500">
+          <div className="rounded-2xl border border-gray-200/80 bg-white p-10 text-center text-xs text-gray-400">
             Không có ghi nhận bất thường nào trên {activeLine?.name}.
           </div>
         ) : (
@@ -154,46 +166,46 @@ export function AbnormalModule() {
             return (
               <div
                 key={log.id}
-                className={`rounded-xl border p-4 transition-all ${
+                className={`rounded-2xl border p-4 transition-all bg-white shadow-xs ${
                   isAcknowledged
-                    ? 'border-slate-800 bg-slate-900/40 opacity-80'
-                    : 'border-amber-500/40 bg-amber-950/20 shadow-sm'
+                    ? 'border-gray-200/80 hover:border-gray-300'
+                    : 'border-amber-300 bg-amber-50/20 ring-1 ring-amber-200/50'
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-white text-sm">{log.equipmentName}</span>
-                    <span className="text-[11px] font-semibold text-amber-400 bg-amber-950/60 border border-amber-800/40 px-2 py-0.5 rounded">
+                    <span className="font-bold text-[#202124] text-sm">{log.equipmentName}</span>
+                    <span className="text-[11px] font-bold text-[#D97706] bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                       {log.abnormalType}
                     </span>
                     {log.sourceAmId && (
-                      <span className="text-[10px] text-sky-400 bg-sky-950/50 border border-sky-800/40 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-bold">
                         Nguồn AM
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <div className="flex items-center gap-3 text-xs text-gray-500">
                     <span className="flex items-center gap-1 font-mono text-[11px]">
-                      <Clock className="h-3 w-3" />
+                      <Clock className="h-3 w-3 text-gray-400" />
                       {formatDateTime(log.occurredAt)}
                     </span>
                     <span>·</span>
-                    <span>{log.shiftId.replace('SHIFT_', 'Ca ')}</span>
+                    <span className="font-medium text-[#202124]">{log.shiftId.replace('SHIFT_', 'Ca ')}</span>
                   </div>
                 </div>
 
-                <div className="mt-2.5 text-xs text-slate-200 leading-relaxed">{log.description}</div>
+                <div className="mt-3 text-xs text-gray-800 leading-relaxed font-medium">{log.description}</div>
 
-                <div className="mt-3 pt-2.5 border-t border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
-                  <div className="text-slate-400">
-                    Người ghi nhận: <strong className="text-slate-300">{log.reportedByName}</strong>
+                <div className="mt-3.5 pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
+                  <div className="text-gray-500">
+                    Người ghi nhận: <strong className="text-[#202124]">{log.reportedByName}</strong>
                   </div>
 
                   <div className="flex items-center gap-3">
                     {isAcknowledged ? (
-                      <div className="flex items-center gap-1.5 text-emerald-400">
-                        <CheckCircle className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-1.5 text-[#16865B] font-semibold">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                         <span>
                           Đã xem bởi <strong>{log.acknowledgedByName}</strong> ({formatDateTime(log.acknowledgedAt!)})
                         </span>
@@ -201,13 +213,13 @@ export function AbnormalModule() {
                     ) : canAcknowledge ? (
                       <button
                         onClick={() => acknowledgeAbnormalLog(log.id)}
-                        className="flex items-center gap-1.5 rounded bg-amber-600 px-3 py-1 font-bold text-white hover:bg-amber-500 shadow-sm cursor-pointer"
+                        className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-1.5 font-bold text-white hover:bg-amber-600 shadow-xs cursor-pointer transition-colors active:scale-95"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         <span>Xác nhận đã xem</span>
                       </button>
                     ) : (
-                      <span className="text-amber-400/80 italic">Chờ Tổ trưởng/Supervisor xem</span>
+                      <span className="text-[#D97706] italic font-medium">Chờ Tổ trưởng/Supervisor xem</span>
                     )}
                   </div>
                 </div>
@@ -217,30 +229,30 @@ export function AbnormalModule() {
         )}
       </div>
 
-      {/* Quick Add Abnormality Modal (< 30s) */}
+      {/* Quick Add Abnormality Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-850">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 bg-gray-50/70">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-400" />
-                <h3 className="font-bold text-white text-sm">Ghi nhận Bất thường Hiện trường</h3>
+                <AlertTriangle className="h-5 w-5 text-[#D97706]" />
+                <h3 className="font-bold text-[#202124] text-sm">Ghi nhận Bất thường Hiện trường</h3>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-white rounded p-1"
+                className="text-gray-400 hover:text-gray-700 rounded-full p-1 cursor-pointer hover:bg-gray-100"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Thiết bị phát hiện bất thường</label>
+                <label className="block font-bold text-gray-700 mb-1.5">Thiết bị phát hiện bất thường</label>
                 <select
                   value={targetEquipmentId}
                   onChange={(e) => setTargetEquipmentId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white font-medium focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[#202124] font-semibold focus:border-[#E31837] focus:outline-none"
                   required
                 >
                   {lineEquipments.map((eq) => (
@@ -252,11 +264,11 @@ export function AbnormalModule() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">Loại bất thường</label>
+                <label className="block font-bold text-gray-700 mb-1.5">Loại bất thường</label>
                 <select
                   value={abnormalType}
                   onChange={(e) => setAbnormalType(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white font-medium focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[#202124] font-semibold focus:border-[#E31837] focus:outline-none"
                 >
                   {COMMON_ABNORMAL_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -267,35 +279,35 @@ export function AbnormalModule() {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-300 mb-1">
-                  Mô tả dấu hiệu bất thường thực tế <span className="text-rose-400">*</span>
+                <label className="block font-bold text-gray-700 mb-1.5">
+                  Mô tả dấu hiệu bất thường thực tế <span className="text-[#E31837]">*</span>
                 </label>
                 <textarea
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Ví dụ: Áp suất hơi sụt dưới 3.5 bar, tiếng rít lớn tại van giảm áp, cánh khuấy bị giật nhẹ..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-white placeholder-slate-500 focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-200 bg-white p-3 text-[#202124] placeholder-gray-400 focus:border-[#E31837] focus:outline-none"
                   required
                 />
               </div>
 
-              <div className="border-t border-slate-800 pt-3 flex items-center justify-between">
-                <span className="text-slate-400 text-[11px]">
-                  Người ghi nhận: <strong className="text-white">{currentUser.displayName}</strong>
+              <div className="border-t border-gray-100 pt-3.5 flex items-center justify-between">
+                <span className="text-gray-500 text-[11px]">
+                  Người ghi nhận: <strong className="text-[#202124]">{currentUser.displayName}</strong>
                 </span>
 
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="rounded-lg border border-slate-700 px-3 py-1.5 font-semibold text-slate-300 hover:bg-slate-800"
+                    className="rounded-xl border border-gray-200 px-4 py-2 font-bold text-gray-700 hover:bg-gray-100 cursor-pointer"
                   >
                     Hủy
                   </button>
                   <button
                     type="submit"
-                    className="rounded-lg bg-orange-600 px-4 py-1.5 font-bold text-white hover:bg-orange-500 shadow-md cursor-pointer"
+                    className="rounded-xl bg-[#E31837] px-5 py-2 font-bold text-white hover:bg-red-700 shadow-sm cursor-pointer active:scale-95"
                   >
                     Lưu ghi nhận
                   </button>

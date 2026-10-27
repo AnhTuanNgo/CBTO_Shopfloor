@@ -18,6 +18,7 @@ import {
   Wrench,
   CheckCircle2,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 
 type SettingsTab = 'line' | 'shift' | 'equipment' | 'reason';
@@ -100,7 +101,7 @@ export function SettingsModule() {
   const [eqTitle, setEqTitle] = useState('');
   const [eqCategory, setEqCategory] = useState<Equipment['category']>('Cơ khí');
 
-  // Downtime reason form
+  // Reason form
   const [reasonCategory, setReasonCategory] = useState<LossGroup>('Breakdown');
   const [reasonTitle, setReasonTitle] = useState('');
   const [reasonStage, setReasonStage] = useState('Chuẩn bị & Nạp NVL');
@@ -108,7 +109,9 @@ export function SettingsModule() {
 
   const showToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setStatusMessage({ text, type });
-    setTimeout(() => setStatusMessage(null), 3500);
+    setTimeout(() => {
+      setStatusMessage(null);
+    }, 4000);
   };
 
   const resetForm = () => {
@@ -284,10 +287,10 @@ export function SettingsModule() {
       {/* Toast Notification */}
       {statusMessage && (
         <div
-          className={`flex items-center gap-2 p-3 text-sm rounded-lg border shadow-lg transition-all ${
+          className={`flex items-center gap-2.5 p-4 text-xs font-bold rounded-2xl border shadow-xs transition-all ${
             statusMessage.type === 'error'
-              ? 'bg-rose-950/80 text-rose-200 border-rose-600'
-              : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
+              ? 'bg-red-50 text-[#C62828] border-red-200'
+              : 'bg-emerald-50 text-[#16865B] border-emerald-200'
           }`}
         >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -296,75 +299,74 @@ export function SettingsModule() {
       )}
 
       {/* Main Header Card */}
-      <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-[#210936] via-[#160726] to-[#0d0417] p-5 shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Wrench className="h-5 w-5" />
-              </span>
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white uppercase flex items-center gap-2">
-                Cài đặt chi tiết
-                <span className="text-xs font-normal px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 lowercase">
-                  tùy biến line & danh mục
+      <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-[#E31837]">
+              <Settings className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-[#202124] flex items-center gap-2">
+                Cài đặt & Danh mục Shopfloor
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-red-50 text-[#E31837] border border-red-200">
+                  tùy biến line
                 </span>
               </h1>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Cấu hình trực tiếp danh sách Line, Ca làm việc, Thiết bị và Danh mục nguyên nhân dừng máy theo tiêu chuẩn nhà máy CBTO.
+              </p>
             </div>
-            <p className="mt-1 text-xs md:text-sm text-slate-300 max-w-3xl">
-              Cấu hình trực tiếp danh sách Dây chuyền (Line), Ca làm việc, Thiết bị máy móc và Danh mục lý do dừng máy (Down Time) theo tiêu chuẩn nhà máy CBTO.
-            </p>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-amber-300 font-medium">Line mặc định:</span>
-            <select
-              value={selectedLineId}
-              onChange={(e) => setSelectedLineId(e.target.value)}
-              className="bg-slate-900/90 border border-amber-500/40 rounded-lg px-3 py-1.5 text-xs font-bold text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
-            >
-              {lines.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} ({l.code})
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 font-semibold">Line mặc định:</span>
+          <select
+            value={selectedLineId}
+            onChange={(e) => setSelectedLineId(e.target.value)}
+            className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-[#202124] focus:outline-none focus:border-[#E31837]"
+          >
+            {lines.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} ({l.code})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* 4 Tabs Menu matching the image style */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+      {/* 4 Tabs Menu */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Tab 1: Line */}
         <button
           onClick={() => {
             setActiveTab('line');
             resetForm();
           }}
-          className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`flex items-center justify-between p-4 rounded-2xl border text-left transition-all cursor-pointer bg-white shadow-xs ${
             activeTab === 'line'
-              ? 'bg-gradient-to-br from-indigo-950/80 to-purple-900/50 border-amber-400/80 shadow-md shadow-indigo-950/40'
-              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90 text-slate-400'
+              ? 'border-[#E31837] ring-2 ring-red-100'
+              : 'border-gray-200/80 hover:border-gray-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <div
-              className={`p-2 rounded-lg ${
-                activeTab === 'line' ? 'bg-amber-400/20 text-amber-300' : 'bg-slate-800 text-slate-400'
+              className={`p-2 rounded-xl ${
+                activeTab === 'line' ? 'bg-red-50 text-[#E31837]' : 'bg-gray-100 text-gray-500'
               }`}
             >
               <Layers className="h-4 w-4" />
             </div>
             <div>
-              <div className={`text-xs font-bold ${activeTab === 'line' ? 'text-white' : 'text-slate-300'}`}>
+              <div className={`text-xs font-bold ${activeTab === 'line' ? 'text-[#E31837]' : 'text-[#202124]'}`}>
                 Line sản xuất
               </div>
-              <div className="text-[11px] text-slate-400">Dây chuyền chế biến</div>
+              <div className="text-[11px] text-gray-400 font-medium">Dây chuyền chế biến</div>
             </div>
           </div>
           <span
-            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              activeTab === 'line' ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+              activeTab === 'line' ? 'bg-[#E31837] text-white' : 'bg-gray-100 text-gray-600'
             }`}
           >
             {lines.length}
@@ -377,30 +379,30 @@ export function SettingsModule() {
             setActiveTab('shift');
             resetForm();
           }}
-          className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`flex items-center justify-between p-4 rounded-2xl border text-left transition-all cursor-pointer bg-white shadow-xs ${
             activeTab === 'shift'
-              ? 'bg-gradient-to-br from-indigo-950/80 to-purple-900/50 border-amber-400/80 shadow-md shadow-indigo-950/40'
-              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90 text-slate-400'
+              ? 'border-[#E31837] ring-2 ring-red-100'
+              : 'border-gray-200/80 hover:border-gray-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <div
-              className={`p-2 rounded-lg ${
-                activeTab === 'shift' ? 'bg-amber-400/20 text-amber-300' : 'bg-slate-800 text-slate-400'
+              className={`p-2 rounded-xl ${
+                activeTab === 'shift' ? 'bg-red-50 text-[#E31837]' : 'bg-gray-100 text-gray-500'
               }`}
             >
               <Clock className="h-4 w-4" />
             </div>
             <div>
-              <div className={`text-xs font-bold ${activeTab === 'shift' ? 'text-white' : 'text-slate-300'}`}>
+              <div className={`text-xs font-bold ${activeTab === 'shift' ? 'text-[#E31837]' : 'text-[#202124]'}`}>
                 Ca làm việc
               </div>
-              <div className="text-[11px] text-slate-400">Khung giờ giao nhận</div>
+              <div className="text-[11px] text-gray-400 font-medium">Khung giờ giao nhận</div>
             </div>
           </div>
           <span
-            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              activeTab === 'shift' ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+              activeTab === 'shift' ? 'bg-[#E31837] text-white' : 'bg-gray-100 text-gray-600'
             }`}
           >
             {shifts.length}
@@ -413,30 +415,30 @@ export function SettingsModule() {
             setActiveTab('equipment');
             resetForm();
           }}
-          className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`flex items-center justify-between p-4 rounded-2xl border text-left transition-all cursor-pointer bg-white shadow-xs ${
             activeTab === 'equipment'
-              ? 'bg-gradient-to-br from-indigo-950/80 to-purple-900/50 border-amber-400/80 shadow-md shadow-indigo-950/40'
-              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90 text-slate-400'
+              ? 'border-[#E31837] ring-2 ring-red-100'
+              : 'border-gray-200/80 hover:border-gray-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <div
-              className={`p-2 rounded-lg ${
-                activeTab === 'equipment' ? 'bg-amber-400/20 text-amber-300' : 'bg-slate-800 text-slate-400'
+              className={`p-2 rounded-xl ${
+                activeTab === 'equipment' ? 'bg-red-50 text-[#E31837]' : 'bg-gray-100 text-gray-500'
               }`}
             >
               <Cpu className="h-4 w-4" />
             </div>
             <div>
-              <div className={`text-xs font-bold ${activeTab === 'equipment' ? 'text-white' : 'text-slate-300'}`}>
+              <div className={`text-xs font-bold ${activeTab === 'equipment' ? 'text-[#E31837]' : 'text-[#202124]'}`}>
                 Thiết bị máy
               </div>
-              <div className="text-[11px] text-slate-400">Máy móc theo từng Line</div>
+              <div className="text-[11px] text-gray-400 font-medium">Máy móc theo từng Line</div>
             </div>
           </div>
           <span
-            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              activeTab === 'equipment' ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+              activeTab === 'equipment' ? 'bg-[#E31837] text-white' : 'bg-gray-100 text-gray-600'
             }`}
           >
             {equipments.length}
@@ -449,30 +451,30 @@ export function SettingsModule() {
             setActiveTab('reason');
             resetForm();
           }}
-          className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+          className={`flex items-center justify-between p-4 rounded-2xl border text-left transition-all cursor-pointer bg-white shadow-xs ${
             activeTab === 'reason'
-              ? 'bg-gradient-to-br from-indigo-950/80 to-purple-900/50 border-amber-400/80 shadow-md shadow-indigo-950/40'
-              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90 text-slate-400'
+              ? 'border-[#E31837] ring-2 ring-red-100'
+              : 'border-gray-200/80 hover:border-gray-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <div
-              className={`p-2 rounded-lg ${
-                activeTab === 'reason' ? 'bg-amber-400/20 text-amber-300' : 'bg-slate-800 text-slate-400'
+              className={`p-2 rounded-xl ${
+                activeTab === 'reason' ? 'bg-red-50 text-[#E31837]' : 'bg-gray-100 text-gray-500'
               }`}
             >
               <AlertTriangle className="h-4 w-4" />
             </div>
             <div>
-              <div className={`text-xs font-bold ${activeTab === 'reason' ? 'text-white' : 'text-slate-300'}`}>
+              <div className={`text-xs font-bold ${activeTab === 'reason' ? 'text-[#E31837]' : 'text-[#202124]'}`}>
                 Lý do lỗi
               </div>
-              <div className="text-[11px] text-slate-400">9 Nhóm Down Time</div>
+              <div className="text-[11px] text-gray-400 font-medium">9 Nhóm nguyên nhân</div>
             </div>
           </div>
           <span
-            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              activeTab === 'reason' ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+              activeTab === 'reason' ? 'bg-[#E31837] text-white' : 'bg-gray-100 text-gray-600'
             }`}
           >
             {downtimeReasons.length}
@@ -482,17 +484,17 @@ export function SettingsModule() {
 
       {/* Filter toolbar if Equipment or Reason tab */}
       {activeTab === 'equipment' && (
-        <div className="flex items-center gap-2 flex-wrap bg-slate-900/70 p-3 rounded-lg border border-slate-800 text-xs">
-          <span className="text-slate-400 font-medium flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5 text-amber-400" />
+        <div className="flex items-center gap-2 flex-wrap bg-white p-4 rounded-2xl border border-gray-200/80 text-xs shadow-xs">
+          <span className="text-gray-500 font-bold flex items-center gap-1.5 mr-1">
+            <Filter className="h-3.5 w-3.5 text-[#E31837]" />
             Lọc theo Line:
           </span>
           <button
             onClick={() => setFilterLineId('ALL')}
-            className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
               filterLineId === 'ALL'
-                ? 'bg-amber-500 text-slate-950 font-bold'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                ? 'bg-[#E31837] text-white shadow-xs'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             Tất cả ({equipments.length})
@@ -501,10 +503,10 @@ export function SettingsModule() {
             <button
               key={l.id}
               onClick={() => setFilterLineId(l.id)}
-              className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                 filterLineId === l.id
-                  ? 'bg-amber-500 text-slate-950 font-bold'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-[#E31837] text-white shadow-xs'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {l.name} ({equipments.filter((e) => e.lineId === l.id).length})
@@ -514,17 +516,17 @@ export function SettingsModule() {
       )}
 
       {activeTab === 'reason' && (
-        <div className="flex items-center gap-2 flex-wrap bg-slate-900/70 p-3 rounded-lg border border-slate-800 text-xs">
-          <span className="text-slate-400 font-medium flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5 text-amber-400" />
+        <div className="flex items-center gap-2 flex-wrap bg-white p-4 rounded-2xl border border-gray-200/80 text-xs shadow-xs">
+          <span className="text-gray-500 font-bold flex items-center gap-1.5 mr-1">
+            <Filter className="h-3.5 w-3.5 text-[#E31837]" />
             Lọc theo nhóm Loss:
           </span>
           <button
             onClick={() => setFilterLossGroup('ALL')}
-            className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
               filterLossGroup === 'ALL'
-                ? 'bg-amber-500 text-slate-950 font-bold'
-                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                ? 'bg-[#E31837] text-white shadow-xs'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             Tất cả ({downtimeReasons.length})
@@ -536,10 +538,10 @@ export function SettingsModule() {
               <button
                 key={g}
                 onClick={() => setFilterLossGroup(g)}
-                className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                   filterLossGroup === g
-                    ? 'bg-amber-500 text-slate-950 font-bold'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    ? 'bg-[#E31837] text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
                 {g} ({count})
@@ -551,8 +553,8 @@ export function SettingsModule() {
 
       {/* Cards List Section */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs text-slate-400 px-1">
-          <span className="font-semibold uppercase tracking-wider text-slate-300">
+        <div className="flex items-center justify-between text-xs px-1">
+          <span className="font-bold uppercase tracking-wider text-gray-500">
             Danh sách{' '}
             {activeTab === 'line'
               ? 'Dây chuyền'
@@ -562,7 +564,7 @@ export function SettingsModule() {
               ? `Thiết bị máy (${filteredEquipments.length})`
               : `Lý do dừng máy (${filteredReasons.length})`}
           </span>
-          <span className="text-[11px] text-amber-400">Bấm [Sửa] để chỉnh sửa bên dưới hoặc [Xóa]</span>
+          <span className="text-[11px] text-gray-400 font-medium">Bấm [Sửa] để chỉnh sửa bên dưới hoặc [Xóa]</span>
         </div>
 
         {/* LINE CARDS */}
@@ -574,30 +576,30 @@ export function SettingsModule() {
               return (
                 <div
                   key={l.id}
-                  className={`rounded-xl border p-4 transition-all relative flex flex-col justify-between ${
+                  className={`rounded-2xl border p-5 transition-all bg-white flex flex-col justify-between shadow-xs ${
                     isEditing
-                      ? 'bg-indigo-950/60 border-amber-400 shadow-md ring-1 ring-amber-400'
-                      : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                      ? 'border-[#E31837] ring-2 ring-red-100'
+                      : 'border-gray-200/80 hover:border-gray-300'
                   }`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
-                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-bold">
                           {l.code}
                         </span>
-                        <h3 className="text-sm font-bold text-white mt-1.5">{l.name}</h3>
+                        <h3 className="text-sm font-bold text-[#202124] mt-2">{l.name}</h3>
                       </div>
-                      <span className="text-[11px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
+                      <span className="text-[11px] text-gray-500 font-semibold bg-gray-100 px-2.5 py-0.5 rounded-full">
                         {eqCount} thiết bị
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mb-4 line-clamp-2">
+                    <p className="text-xs text-gray-500 mb-4 line-clamp-2 font-medium">
                       {l.description || 'Chưa có thông tin mô tả chi tiết cho dây chuyền này.'}
                     </p>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                     <button
                       type="button"
                       onClick={() => {
@@ -607,7 +609,7 @@ export function SettingsModule() {
                           if (editingId === l.id) resetForm();
                         }
                       }}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#C62828] hover:bg-red-50 font-bold transition-colors cursor-pointer"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>Xóa</span>
@@ -615,7 +617,7 @@ export function SettingsModule() {
                     <button
                       type="button"
                       onClick={() => handleEditLine(l)}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-sky-500/40 text-sky-400 hover:bg-sky-500/15 font-medium transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#202124] hover:bg-gray-100 font-bold transition-colors cursor-pointer"
                     >
                       <Edit3 className="h-3.5 w-3.5" />
                       <span>Sửa</span>
@@ -635,31 +637,31 @@ export function SettingsModule() {
               return (
                 <div
                   key={s.id}
-                  className={`rounded-xl border p-4 transition-all relative flex flex-col justify-between ${
+                  className={`rounded-2xl border p-5 transition-all bg-white flex flex-col justify-between shadow-xs ${
                     isEditing
-                      ? 'bg-indigo-950/60 border-amber-400 shadow-md ring-1 ring-amber-400'
-                      : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                      ? 'border-[#E31837] ring-2 ring-red-100'
+                      : 'border-gray-200/80 hover:border-gray-300'
                   }`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
-                        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-bold">
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-bold">
                           {s.code || s.id}
                         </span>
-                        <h3 className="text-sm font-bold text-white mt-1.5">{s.name}</h3>
+                        <h3 className="text-sm font-bold text-[#202124] mt-2">{s.name}</h3>
                       </div>
-                      <span className="text-[11px] text-amber-300 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      <span className="text-[11px] text-[#E31837] font-bold bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
                         {s.displayTime}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-400 mb-4 space-y-1">
-                      <div>Giờ bắt đầu: <span className="text-slate-200 font-medium">{s.startHour}:00</span></div>
-                      <div>Giờ kết thúc: <span className="text-slate-200 font-medium">{s.endHour}:00</span></div>
+                    <div className="text-xs text-gray-500 mb-4 space-y-1 font-medium">
+                      <div>Giờ bắt đầu: <span className="text-[#202124] font-bold">{s.startHour}:00</span></div>
+                      <div>Giờ kết thúc: <span className="text-[#202124] font-bold">{s.endHour}:00</span></div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                     <button
                       type="button"
                       onClick={() => {
@@ -669,7 +671,7 @@ export function SettingsModule() {
                           if (editingId === s.id) resetForm();
                         }
                       }}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#C62828] hover:bg-red-50 font-bold transition-colors cursor-pointer"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>Xóa</span>
@@ -677,7 +679,7 @@ export function SettingsModule() {
                     <button
                       type="button"
                       onClick={() => handleEditShift(s)}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-sky-500/40 text-sky-400 hover:bg-sky-500/15 font-medium transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#202124] hover:bg-gray-100 font-bold transition-colors cursor-pointer"
                     >
                       <Edit3 className="h-3.5 w-3.5" />
                       <span>Sửa</span>
@@ -698,32 +700,32 @@ export function SettingsModule() {
               return (
                 <div
                   key={eq.id}
-                  className={`rounded-xl border p-4 transition-all relative flex flex-col justify-between ${
+                  className={`rounded-2xl border p-5 transition-all bg-white flex flex-col justify-between shadow-xs ${
                     isEditing
-                      ? 'bg-indigo-950/60 border-amber-400 shadow-md ring-1 ring-amber-400'
-                      : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                      ? 'border-[#E31837] ring-2 ring-red-100'
+                      : 'border-gray-200/80 hover:border-gray-300'
                   }`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+                          <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 font-bold">
                             {eq.code}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-semibold">
                             {eq.category}
                           </span>
                         </div>
-                        <h3 className="text-sm font-bold text-white">{eq.name}</h3>
+                        <h3 className="text-sm font-bold text-[#202124]">{eq.name}</h3>
                       </div>
                     </div>
-                    <div className="text-xs text-slate-400 mb-3">
-                      Thuộc: <span className="text-amber-400 font-semibold">{lineObj ? lineObj.name : eq.lineId}</span>
+                    <div className="text-xs text-gray-500 mb-3 font-medium">
+                      Thuộc: <span className="text-[#202124] font-bold">{lineObj ? lineObj.name : eq.lineId}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                     <button
                       type="button"
                       onClick={() => {
@@ -733,7 +735,7 @@ export function SettingsModule() {
                           if (editingId === eq.id) resetForm();
                         }
                       }}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#C62828] hover:bg-red-50 font-bold transition-colors cursor-pointer"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>Xóa</span>
@@ -741,7 +743,7 @@ export function SettingsModule() {
                     <button
                       type="button"
                       onClick={() => handleEditEquipment(eq)}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-sky-500/40 text-sky-400 hover:bg-sky-500/15 font-medium transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#202124] hover:bg-gray-100 font-bold transition-colors cursor-pointer"
                     >
                       <Edit3 className="h-3.5 w-3.5" />
                       <span>Sửa</span>
@@ -761,30 +763,30 @@ export function SettingsModule() {
               return (
                 <div
                   key={r.id}
-                  className={`rounded-xl border p-4 transition-all relative flex flex-col justify-between ${
+                  className={`rounded-2xl border p-5 transition-all bg-white flex flex-col justify-between shadow-xs ${
                     isEditing
-                      ? 'bg-indigo-950/60 border-amber-400 shadow-md ring-1 ring-amber-400'
-                      : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                      ? 'border-[#E31837] ring-2 ring-red-100'
+                      : 'border-gray-200/80 hover:border-gray-300'
                   }`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-red-50 text-[#E31837] border border-red-200">
                         {r.category}
                       </span>
                       {r.stage && (
-                        <span className="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+                        <span className="text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md font-medium">
                           {r.stage}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-xs font-bold text-white mb-1.5">{r.reason}</h3>
+                    <h3 className="text-xs font-bold text-[#202124] mb-1.5">{r.reason}</h3>
                     {r.description && (
-                      <p className="text-[11px] text-slate-400 line-clamp-2 mb-3">{r.description}</p>
+                      <p className="text-[11px] text-gray-500 line-clamp-2 mb-3">{r.description}</p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800/80">
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
                     <button
                       type="button"
                       onClick={() => {
@@ -794,7 +796,7 @@ export function SettingsModule() {
                           if (editingId === r.id) resetForm();
                         }
                       }}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-rose-500/40 text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#C62828] hover:bg-red-50 font-bold transition-colors cursor-pointer"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>Xóa</span>
@@ -802,7 +804,7 @@ export function SettingsModule() {
                     <button
                       type="button"
                       onClick={() => handleEditReason(r)}
-                      className="flex items-center gap-1 px-3 py-1 text-xs rounded-md border border-sky-500/40 text-sky-400 hover:bg-sky-500/15 font-medium transition-colors cursor-pointer"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-xl border border-gray-200 text-[#202124] hover:bg-gray-100 font-bold transition-colors cursor-pointer"
                     >
                       <Edit3 className="h-3.5 w-3.5" />
                       <span>Sửa</span>
@@ -815,16 +817,16 @@ export function SettingsModule() {
         )}
       </div>
 
-      {/* Bottom Section: Form for Create / Edit (Matching image bottom design) */}
-      <div className="rounded-xl border border-amber-500/40 bg-gradient-to-br from-[#1a0c2c] via-[#12081f] to-[#0a0412] p-5 shadow-2xl relative">
-        <div className="flex items-center justify-between pb-3 border-b border-amber-500/20 mb-4">
+      {/* Bottom Section: Form for Create / Edit */}
+      <div className="rounded-3xl border border-gray-200/80 bg-white p-6 shadow-xs">
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
           <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-amber-500/15 text-amber-300">
+            <span className="p-2 rounded-xl bg-red-50 text-[#E31837]">
               {editingId ? <Edit3 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             </span>
-            <h2 className="text-sm md:text-base font-bold text-white uppercase tracking-wide">
+            <h2 className="text-sm md:text-base font-bold text-[#202124]">
               {editingId ? 'Chỉnh sửa thông tin' : 'Nhập mới thông tin'}
-              <span className="ml-2 text-xs font-medium text-amber-300 lowercase">
+              <span className="ml-2 text-xs font-semibold text-gray-500 lowercase">
                 (mục:{' '}
                 {activeTab === 'line'
                   ? 'Line sản xuất'
@@ -832,7 +834,7 @@ export function SettingsModule() {
                   ? 'Ca làm việc'
                   : activeTab === 'equipment'
                   ? 'Thiết bị máy móc'
-                  : 'Lý do lỗi Down Time'}
+                  : 'Lý do dừng máy'}
                 )
               </span>
             </h2>
@@ -842,7 +844,7 @@ export function SettingsModule() {
             <button
               type="button"
               onClick={resetForm}
-              className="text-xs text-slate-400 hover:text-white flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800"
+              className="text-xs text-gray-600 hover:text-[#202124] flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gray-100 font-bold cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
               <span>Hủy sửa (Thêm mới)</span>
@@ -855,43 +857,43 @@ export function SettingsModule() {
           {activeTab === 'line' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Title (Tên Line sản xuất) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Tên Line sản xuất <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={lineTitle}
                   onChange={(e) => setLineTitle(e.target.value)}
-                  placeholder="Ví dụ: Dây chuyền Chế biến Bia 02"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  placeholder="Ví dụ: Dây chuyền Chế biến Nấu 02"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Code (Mã Line) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Mã Line (Code) <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={lineCode}
                   onChange={(e) => setLineCode(e.target.value)}
                   placeholder="Ví dụ: LINE_02"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-amber-400 font-mono"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] uppercase focus:outline-none focus:border-[#E31837] font-mono font-bold"
                   required
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Description (Mô tả chi tiết nhiệm vụ của Line)
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Mô tả chi tiết nhiệm vụ của Line
                 </label>
                 <textarea
                   rows={2}
                   value={lineDesc}
                   onChange={(e) => setLineDesc(e.target.value)}
                   placeholder="Nhập mô tả quy trình công nghệ, loại sản phẩm phụ trách của Line này..."
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] focus:outline-none focus:border-[#E31837]"
                 />
               </div>
             </div>
@@ -901,49 +903,49 @@ export function SettingsModule() {
           {activeTab === 'shift' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Title (Tên Ca làm việc) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Tên Ca làm việc <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={shiftTitle}
                   onChange={(e) => setShiftTitle(e.target.value)}
                   placeholder="Ví dụ: Ca 3 - Ca Đêm"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Code (Mã Ca) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Mã Ca (Code) <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={shiftCode}
                   onChange={(e) => setShiftCode(e.target.value)}
-                  placeholder="Ví dụ: SHIFT_3"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-amber-400 font-mono"
+                  placeholder="Ví dụ: SHIFT_C"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] uppercase focus:outline-none focus:border-[#E31837] font-mono font-bold"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Khung giờ hiển thị (Display Time) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Khung giờ hiển thị <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={shiftDisplayTime}
                   onChange={(e) => setShiftDisplayTime(e.target.value)}
                   placeholder="Ví dụ: 22:00 - 06:00"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
                   Giờ bắt đầu (0 - 23h)
                 </label>
                 <input
@@ -952,12 +954,12 @@ export function SettingsModule() {
                   max={23}
                   value={shiftStartHour}
                   onChange={(e) => setShiftStartHour(Number(e.target.value))}
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-bold focus:outline-none focus:border-[#E31837]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
                   Giờ kết thúc (0 - 23h)
                 </label>
                 <input
@@ -966,7 +968,7 @@ export function SettingsModule() {
                   max={23}
                   value={shiftEndHour}
                   onChange={(e) => setShiftEndHour(Number(e.target.value))}
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-bold focus:outline-none focus:border-[#E31837]"
                 />
               </div>
             </div>
@@ -976,13 +978,13 @@ export function SettingsModule() {
           {activeTab === 'equipment' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Line áp dụng <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Line áp dụng <span className="text-[#E31837]">*</span>
                 </label>
                 <select
                   value={eqLineId}
                   onChange={(e) => setEqLineId(e.target.value)}
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                 >
                   {lines.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -993,41 +995,41 @@ export function SettingsModule() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Mã thiết bị (Code) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Mã thiết bị (Code) <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={eqCode}
                   onChange={(e) => setEqCode(e.target.value)}
                   placeholder="Ví dụ: EQ_L1_08"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-amber-400 font-mono"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] uppercase focus:outline-none focus:border-[#E31837] font-mono font-bold"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Tên thiết bị (Title) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Tên thiết bị (Title) <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={eqTitle}
                   onChange={(e) => setEqTitle(e.target.value)}
                   placeholder="Ví dụ: Máy Đóng Thùng Carton Tự Động"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
                   Phân nhóm thiết bị
                 </label>
                 <select
                   value={eqCategory}
                   onChange={(e) => setEqCategory(e.target.value as Equipment['category'])}
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                 >
                   {EQUIPMENT_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -1043,13 +1045,13 @@ export function SettingsModule() {
           {activeTab === 'reason' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Nhóm Loss (9 Loss Groups) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Nhóm Loss (9 Loss Groups) <span className="text-[#E31837]">*</span>
                 </label>
                 <select
                   value={reasonCategory}
                   onChange={(e) => setReasonCategory(e.target.value as LossGroup)}
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                 >
                   {LOSS_GROUPS.map((g) => (
                     <option key={g} value={g}>
@@ -1060,27 +1062,27 @@ export function SettingsModule() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Tên lý do dừng máy (Title) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Tên lý do dừng máy (Title) <span className="text-[#E31837]">*</span>
                 </label>
                 <input
                   type="text"
                   value={reasonTitle}
                   onChange={(e) => setReasonTitle(e.target.value)}
                   placeholder="Ví dụ: Rò rỉ gioăng mặt bích hơi bồn nấu"
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
                   Công đoạn áp dụng (Stage)
                 </label>
                 <select
                   value={reasonStage}
                   onChange={(e) => setReasonStage(e.target.value)}
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] font-semibold focus:outline-none focus:border-[#E31837]"
                 >
                   {COMMON_STAGES.map((stg) => (
                     <option key={stg} value={stg}>
@@ -1091,7 +1093,7 @@ export function SettingsModule() {
               </div>
 
               <div className="md:col-span-3">
-                <label className="block text-xs font-bold text-amber-300 mb-1">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
                   Mô tả & Hướng dẫn xử lý sự cố (Description)
                 </label>
                 <textarea
@@ -1099,29 +1101,29 @@ export function SettingsModule() {
                   value={reasonDesc}
                   onChange={(e) => setReasonDesc(e.target.value)}
                   placeholder="Ghi chú thêm về hiện tượng, cách khắc phục nhanh hoặc tiêu chuẩn kiểm tra an toàn..."
-                  className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-[#202124] focus:outline-none focus:border-[#E31837]"
                 />
               </div>
             </div>
           )}
 
-          {/* Action buttons (matching Confirm/Cancel in screenshot) */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          {/* Action buttons */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
               onClick={resetForm}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white transition-all cursor-pointer shadow-md"
+              className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
             >
               <X className="h-4 w-4" />
-              <span>⊘ Hủy</span>
+              <span>Hủy</span>
             </button>
 
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white transition-all cursor-pointer shadow-lg shadow-blue-900/30"
+              className="flex items-center gap-1.5 px-6 py-2.5 text-xs font-bold rounded-xl bg-[#E31837] hover:bg-red-700 text-white transition-all cursor-pointer shadow-sm active:scale-95"
             >
               <Check className="h-4 w-4" />
-              <span>✓ Xác nhận</span>
+              <span>Xác nhận Lưu</span>
             </button>
           </div>
         </form>

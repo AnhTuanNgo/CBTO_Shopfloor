@@ -9,10 +9,12 @@ import {
   Plus,
   Upload,
   Download,
-  CheckCircle,
+  CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
   Layers,
+  X,
+  FileText,
 } from 'lucide-react';
 
 export function ProductionProgressModule() {
@@ -106,46 +108,48 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
     }
 
     const res = importProgressBatch(parsedRows);
-    setImportResult({ count: res.count, errors: res.errors });
-    if (res.errors.length === 0) {
-      setTimeout(() => {
-        setIsCsvModalOpen(false);
-        setImportResult(null);
-        setCsvText('');
-      }, 1500);
-    }
+    setImportResult(res);
   };
 
-  // Calculations for summary
-  const totalPlannedTons = filteredProgress.reduce((acc, p) => acc + (p.unit === 'Tấn' ? p.plannedQty : 0), 0);
-  const totalActualTons = filteredProgress.reduce((acc, p) => acc + (p.unit === 'Tấn' ? p.actualQty : 0), 0);
-  const totalVarianceTons = +(totalActualTons - totalPlannedTons).toFixed(2);
+  const totalPlannedTons = useMemo(() => {
+    return filteredProgress.reduce((sum, p) => sum + p.plannedQty, 0);
+  }, [filteredProgress]);
+
+  const totalActualTons = useMemo(() => {
+    return filteredProgress.reduce((sum, p) => sum + p.actualQty, 0);
+  }, [filteredProgress]);
+
   const overallRate = totalPlannedTons > 0 ? +((totalActualTons / totalPlannedTons) * 100).toFixed(1) : null;
+  const totalVarianceTons = +(totalActualTons - totalPlannedTons).toFixed(1);
 
   return (
     <div className="space-y-6">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      {/* Header bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-emerald-400" />
-            <h2 className="text-base font-bold text-white">Tiến độ Sản xuất (Kế hoạch vs Thực hiện)</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-[#E31837]">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#202124]">Tiến độ Sản xuất (Kế hoạch vs Thực hiện)</h2>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Theo dõi sản lượng (tấn) theo ngày & line. Cập nhật lũy kế liên tục, không cộng trùng.
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Theo dõi sản lượng (tấn) theo ngày & line. Cập nhật lũy kế không cộng dồn trùng (AC-12).
-          </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
           <button
             onClick={() => {
               setCsvText(sampleCsvContent);
               setImportResult(null);
               setIsCsvModalOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-700 cursor-pointer"
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 cursor-pointer shadow-xs transition-colors"
           >
-            <Upload className="h-3.5 w-3.5" />
+            <Upload className="h-3.5 w-3.5 text-gray-500" />
             <span>Upload CSV</span>
           </button>
 
@@ -154,7 +158,7 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
               setManualSkuId(skus[0]?.id || '');
               setIsManualModalOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-orange-950/40 hover:bg-orange-500 cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 rounded-xl bg-[#E31837] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-red-700 cursor-pointer transition-colors active:scale-95"
           >
             <Plus className="h-4 w-4" />
             <span>Nhập Sản lượng</span>
@@ -164,114 +168,114 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-          <span className="text-xs text-slate-400 font-medium">Kế hoạch toàn nhà máy</span>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-black text-white font-mono">{totalPlannedTons.toFixed(1)}</span>
-            <span className="text-xs text-slate-400">Tấn</span>
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs">
+          <span className="text-xs text-gray-500 font-semibold block">Kế hoạch toàn nhà máy</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-black text-[#202124] font-mono">{totalPlannedTons.toFixed(1)}</span>
+            <span className="text-xs font-bold text-gray-500">Tấn</span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">Ngày {formatDateVN(selectedProductionDate)}</span>
+          <span className="text-[11px] text-gray-400 mt-1 block">Ngày {formatDateVN(selectedProductionDate)}</span>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-          <span className="text-xs text-slate-400 font-medium">Thực hiện lũy kế</span>
-          <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-2xl font-black text-emerald-400 font-mono">{totalActualTons.toFixed(1)}</span>
-            <span className="text-xs text-slate-400">Tấn</span>
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs">
+          <span className="text-xs text-gray-500 font-semibold block">Thực hiện lũy kế</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-2xl font-black text-[#16865B] font-mono">{totalActualTons.toFixed(1)}</span>
+            <span className="text-xs font-bold text-gray-500">Tấn</span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">Đã ghi nhận đến hiện tại</span>
+          <span className="text-[11px] text-gray-400 mt-1 block">Đã ghi nhận đến hiện tại</span>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-          <span className="text-xs text-slate-400 font-medium">Tỷ lệ hoàn thành (AC-11)</span>
-          <div className="mt-1 flex items-baseline gap-1.5">
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs">
+          <span className="text-xs text-gray-500 font-semibold block">Tỷ lệ hoàn thành</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
             <span
               className={`text-2xl font-black font-mono ${
                 overallRate === null
-                  ? 'text-slate-400'
+                  ? 'text-gray-400'
                   : overallRate >= 95
-                  ? 'text-emerald-400'
+                  ? 'text-[#16865B]'
                   : overallRate >= 80
-                  ? 'text-amber-400'
-                  : 'text-rose-400'
+                  ? 'text-[#D97706]'
+                  : 'text-[#C62828]'
               }`}
             >
               {overallRate !== null ? `${overallRate}%` : 'Không áp dụng'}
             </span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">Thực hiện / Kế hoạch</span>
+          <span className="text-[11px] text-gray-400 mt-1 block">Thực hiện / Kế hoạch</span>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-          <span className="text-xs text-slate-400 font-medium">Chênh lệch sản lượng</span>
-          <div className="mt-1 flex items-baseline gap-1.5">
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs">
+          <span className="text-xs text-gray-500 font-semibold block">Chênh lệch sản lượng</span>
+          <div className="mt-2 flex items-baseline gap-1.5">
             <span
               className={`text-2xl font-black font-mono ${
-                totalVarianceTons >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                totalVarianceTons >= 0 ? 'text-[#16865B]' : 'text-[#C62828]'
               }`}
             >
               {totalVarianceTons >= 0 ? `+${totalVarianceTons}` : totalVarianceTons}
             </span>
-            <span className="text-xs text-slate-400">Tấn</span>
+            <span className="text-xs font-bold text-gray-500">Tấn</span>
           </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">Thực hiện − Kế hoạch</span>
+          <span className="text-[11px] text-gray-400 mt-1 block">Thực hiện − Kế hoạch</span>
         </div>
       </div>
 
       {/* Progress Table */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-        <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-          <h3 className="font-bold text-slate-200 text-sm">
+      <div className="rounded-2xl border border-gray-200/80 bg-white shadow-xs overflow-hidden">
+        <div className="border-b border-gray-100 px-5 py-4 flex items-center justify-between">
+          <h3 className="font-bold text-[#202124] text-sm">
             Chi tiết Kế hoạch vs Thực hiện theo Line & SKU ({filteredProgress.length})
           </h3>
-          <span className="text-xs text-slate-400">Ngày sản xuất: {formatDateVN(selectedProductionDate)}</span>
+          <span className="text-xs text-gray-500 font-medium">Ngày sản xuất: {formatDateVN(selectedProductionDate)}</span>
         </div>
 
         {filteredProgress.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-500">
-            Chưa có dữ liệu tiến độ sản xuất cho ngày {formatDateVN(selectedProductionDate)}. Nhập tay hoặc Upload file CSV.
+          <div className="p-10 text-center text-xs text-gray-400">
+            Chưa có dữ liệu tiến độ sản xuất cho ngày {formatDateVN(selectedProductionDate)}. Nhập trực tiếp hoặc Tải lên file CSV.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="border-b border-slate-800 bg-slate-800/50 text-slate-400">
+            <table className="w-full text-left text-xs text-gray-700">
+              <thead className="border-b border-gray-100 bg-gray-50/70 text-gray-500 font-semibold">
                 <tr>
-                  <th className="px-4 py-2.5">Line</th>
-                  <th className="px-4 py-2.5">SKU</th>
-                  <th className="px-4 py-2.5 text-right">Kế hoạch</th>
-                  <th className="px-4 py-2.5 text-right">Thực hiện</th>
-                  <th className="px-4 py-2.5 text-center">Tỷ lệ % (AC-11)</th>
-                  <th className="px-4 py-2.5 text-right">Chênh lệch</th>
-                  <th className="px-4 py-2.5">Nguồn dữ liệu</th>
-                  <th className="px-4 py-2.5 text-right">Thao tác</th>
+                  <th className="px-5 py-3">Line</th>
+                  <th className="px-5 py-3">SKU</th>
+                  <th className="px-5 py-3 text-right">Kế hoạch</th>
+                  <th className="px-5 py-3 text-right">Thực hiện</th>
+                  <th className="px-5 py-3 text-center">Tỷ lệ %</th>
+                  <th className="px-5 py-3 text-right">Chênh lệch</th>
+                  <th className="px-5 py-3">Nguồn</th>
+                  <th className="px-5 py-3 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-gray-100">
                 {filteredProgress.map((p) => {
                   const line = lines.find((l) => l.id === p.lineId);
                   const sku = skus.find((s) => s.id === p.skuId);
 
                   return (
-                    <tr key={p.id} className="hover:bg-slate-800/30">
-                      <td className="px-4 py-3 font-semibold text-slate-200">{line?.name || p.lineId}</td>
-                      <td className="px-4 py-3 font-medium text-white">{sku?.name || p.skuId}</td>
-                      <td className="px-4 py-3 text-right font-mono text-slate-300">
+                    <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="px-5 py-3.5 font-bold text-[#202124]">{line?.name || p.lineId}</td>
+                      <td className="px-5 py-3.5 font-semibold text-gray-800">{sku?.name || p.skuId}</td>
+                      <td className="px-5 py-3.5 text-right font-mono font-semibold text-gray-600">
                         {p.plannedQty.toFixed(1)} {p.unit}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono font-bold text-emerald-400">
+                      <td className="px-5 py-3.5 text-right font-mono font-bold text-[#16865B]">
                         {p.actualQty.toFixed(1)} {p.unit}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-5 py-3.5 text-center">
                         {p.plannedQty === 0 || p.completionRate === null ? (
-                          <span className="text-slate-400 italic">Không áp dụng</span>
+                          <span className="text-gray-400 italic">Không áp dụng</span>
                         ) : (
                           <span
-                            className={`font-mono font-bold px-2 py-0.5 rounded text-[11px] ${
+                            className={`font-mono font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
                               p.completionRate >= 100
-                                ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60'
+                                ? 'bg-emerald-50 text-[#16865B] border border-emerald-200'
                                 : p.completionRate >= 80
-                                ? 'bg-amber-950/80 text-amber-300 border border-amber-700/60'
-                                : 'bg-rose-950/80 text-rose-300 border border-rose-700/60'
+                                ? 'bg-amber-50 text-[#D97706] border border-amber-200'
+                                : 'bg-red-50 text-[#C62828] border border-red-200'
                             }`}
                           >
                             {p.completionRate}%
@@ -279,18 +283,18 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
                         )}
                       </td>
                       <td
-                        className={`px-4 py-3 text-right font-mono font-bold ${
-                          p.variance >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        className={`px-5 py-3.5 text-right font-mono font-bold ${
+                          p.variance >= 0 ? 'text-[#16865B]' : 'text-[#C62828]'
                         }`}
                       >
                         {p.variance >= 0 ? `+${p.variance}` : p.variance} {p.unit}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 border border-slate-700">
+                      <td className="px-5 py-3.5">
+                        <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 border border-gray-200">
                           {p.source}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-5 py-3.5 text-right">
                         <button
                           onClick={() => {
                             setManualSkuId(p.skuId);
@@ -299,7 +303,7 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
                             setUnitInput(p.unit);
                             setIsManualModalOpen(true);
                           }}
-                          className="text-orange-400 hover:underline font-semibold"
+                          className="text-[#E31837] hover:underline font-bold cursor-pointer"
                         >
                           Sửa lũy kế
                         </button>
@@ -315,20 +319,29 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
 
       {/* Manual Entry Modal */}
       {isManualModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-5 space-y-4 text-xs">
-            <h3 className="font-bold text-white text-base">Cập nhật Số liệu Sản lượng Hiện trường</h3>
-            <p className="text-slate-400">
-              Line: {activeLine?.name} · Ngày {formatDateVN(selectedProductionDate)}. Số liệu thực hiện là lũy kế (AC-12).
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white shadow-2xl p-6 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="font-bold text-[#202124] text-base">Cập nhật Số liệu Sản lượng Hiện trường</h3>
+              <button
+                onClick={() => setIsManualModalOpen(false)}
+                className="text-gray-400 hover:text-gray-700 rounded-full p-1 cursor-pointer hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-gray-500">
+              Line: {activeLine?.name} · Ngày {formatDateVN(selectedProductionDate)}. Số liệu nhập là tổng lũy kế đến hiện tại.
             </p>
 
             <form onSubmit={handleManualSubmit} className="space-y-4">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">SKU Sản phẩm</label>
+                <label className="block text-gray-700 font-bold mb-1.5">SKU Sản phẩm</label>
                 <select
                   value={manualSkuId}
                   onChange={(e) => setManualSkuId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white font-medium focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[#202124] font-semibold focus:border-[#E31837] focus:outline-none"
                 >
                   {skus.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -340,54 +353,54 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Kế hoạch (Planned)</label>
+                  <label className="block text-gray-700 font-bold mb-1.5">Kế hoạch (Planned)</label>
                   <input
                     type="number"
                     step="0.1"
                     min="0"
                     value={plannedQtyInput}
                     onChange={(e) => setPlannedQtyInput(Number(e.target.value))}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white font-mono focus:border-orange-500 focus:outline-none"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[#202124] font-mono font-bold focus:border-[#E31837] focus:outline-none"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Thực hiện lũy kế (Actual)</label>
+                  <label className="block text-gray-700 font-bold mb-1.5">Thực hiện lũy kế (Actual)</label>
                   <input
                     type="number"
                     step="0.1"
                     min="0"
                     value={actualQtyInput}
                     onChange={(e) => setActualQtyInput(Number(e.target.value))}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-emerald-400 font-bold font-mono focus:border-emerald-500 focus:outline-none"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[#16865B] font-bold font-mono focus:border-emerald-500 focus:outline-none"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Đơn vị đo lường</label>
+                <label className="block text-gray-700 font-bold mb-1.5">Đơn vị đo lường</label>
                 <input
                   type="text"
                   value={unitInput}
                   onChange={(e) => setUnitInput(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[#202124] font-semibold"
                   required
                 />
               </div>
 
-              <div className="border-t border-slate-800 pt-3 flex justify-end gap-2">
+              <div className="border-t border-gray-100 pt-3.5 flex justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setIsManualModalOpen(false)}
-                  className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800"
+                  className="rounded-xl border border-gray-200 px-4 py-2 font-bold text-gray-700 hover:bg-gray-100 cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="rounded-lg bg-orange-600 px-4 py-1.5 font-bold text-white hover:bg-orange-500 shadow cursor-pointer"
+                  className="rounded-xl bg-[#E31837] px-5 py-2 font-bold text-white hover:bg-red-700 shadow-sm cursor-pointer active:scale-95"
                 >
                   Lưu số liệu
                 </button>
@@ -399,56 +412,59 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
 
       {/* CSV Import Modal */}
       {isCsvModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-5 space-y-4 text-xs">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="w-full max-w-xl rounded-3xl border border-gray-200 bg-white shadow-2xl p-6 space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-emerald-400" />
-                <h3 className="font-bold text-white text-base">Upload File Dữ liệu Sản lượng CSV</h3>
+                <FileSpreadsheet className="h-5 w-5 text-[#16865B]" />
+                <h3 className="font-bold text-[#202124] text-base">Tải lên File Sản lượng CSV</h3>
               </div>
-              <button onClick={() => setIsCsvModalOpen(false)} className="text-slate-400 hover:text-white rounded p-1">
-                ✕
+              <button
+                onClick={() => setIsCsvModalOpen(false)}
+                className="text-gray-400 hover:text-gray-700 rounded-full p-1 cursor-pointer hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="flex items-center justify-between bg-slate-850 p-3 rounded-xl border border-slate-800">
-              <span className="text-slate-300">
-                Tải file mẫu chuẩn: <code className="text-orange-400 font-mono">production_date,line_code,sku_code...</code>
+            <div className="flex items-center justify-between bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
+              <span className="text-gray-700 font-medium">
+                Tải file mẫu chuẩn: <code className="text-[#E31837] font-mono">production_date,line_code,sku_code...</code>
               </span>
               <button
                 type="button"
                 onClick={handleDownloadSample}
-                className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-slate-200 hover:bg-slate-700 border border-slate-700"
+                className="flex items-center gap-1 rounded-xl bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-100 border border-gray-200 font-bold shadow-xs cursor-pointer"
               >
                 <Download className="h-3.5 w-3.5" />
-                <span>Tải file CSV mẫu</span>
+                <span>Tải file mẫu</span>
               </button>
             </div>
 
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">
+              <label className="block text-gray-700 font-bold mb-1.5">
                 Dán hoặc chỉnh sửa nội dung CSV vào ô dưới đây:
               </label>
               <textarea
                 rows={6}
                 value={csvText}
                 onChange={(e) => setCsvText(e.target.value)}
-                className="w-full font-mono text-[11px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-slate-200 focus:border-emerald-500 focus:outline-none"
+                className="w-full font-mono text-[11px] rounded-xl border border-gray-200 bg-white p-3 text-[#202124] focus:border-[#E31837] focus:outline-none"
               />
             </div>
 
             {importResult && (
               <div
-                className={`p-3 rounded-lg border text-xs ${
+                className={`p-3.5 rounded-2xl border text-xs ${
                   importResult.errors.length === 0
-                    ? 'bg-emerald-950/40 border-emerald-600/50 text-emerald-300'
-                    : 'bg-rose-950/40 border-rose-600/50 text-rose-300'
+                    ? 'bg-emerald-50 border-emerald-200 text-[#16865B]'
+                    : 'bg-red-50 border-red-200 text-[#C62828]'
                 }`}
               >
                 {importResult.errors.length === 0 ? (
-                  <div className="flex items-center gap-1.5 font-bold">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Thành công! Đã cập nhật lũy kế {importResult.count} bản ghi mà không nhân đôi.</span>
+                  <div className="flex items-center gap-2 font-bold">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Thành công! Đã cập nhật lũy kế {importResult.count} bản ghi.</span>
                   </div>
                 ) : (
                   <div>
@@ -463,18 +479,18 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
               </div>
             )}
 
-            <div className="border-t border-slate-800 pt-3 flex justify-end gap-2">
+            <div className="border-t border-gray-100 pt-3.5 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setIsCsvModalOpen(false)}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800"
+                className="rounded-xl border border-gray-200 px-4 py-2 font-bold text-gray-700 hover:bg-gray-100 cursor-pointer"
               >
                 Đóng
               </button>
               <button
                 type="button"
                 onClick={handleProcessCsv}
-                className="rounded-lg bg-emerald-600 px-4 py-1.5 font-bold text-white hover:bg-emerald-500 shadow cursor-pointer"
+                className="rounded-xl bg-[#E31837] px-5 py-2 font-bold text-white hover:bg-red-700 shadow-sm cursor-pointer active:scale-95"
               >
                 Xác thực & Import dữ liệu
               </button>

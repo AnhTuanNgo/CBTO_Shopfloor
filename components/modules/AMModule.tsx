@@ -7,7 +7,7 @@ import { AMChecklistItem, AMResult } from '@/lib/types';
 import { formatDateTime, formatDateVN } from '@/lib/date-utils';
 import {
   ClipboardCheck,
-  CheckCircle,
+  CheckCircle2,
   AlertTriangle,
   XCircle,
   Plus,
@@ -16,6 +16,9 @@ import {
   Gauge,
   Zap,
   Info,
+  X,
+  FileText,
+  Search,
 } from 'lucide-react';
 
 export function AMModule() {
@@ -62,14 +65,33 @@ export function AMModule() {
     setFormError('');
   };
 
-  const handleOpenModal = (eqId?: string) => {
-    resetForm(eqId);
+  const handleOpenModal = (equipmentId?: string) => {
+    resetForm(equipmentId);
     setIsModalOpen(true);
+  };
+
+  const handleQuickPassAll = () => {
+    setFormItems((prev) =>
+      prev.map((i) => ({
+        ...i,
+        result: 'PASS',
+        note: '',
+      }))
+    );
   };
 
   const setItemResult = (itemId: string, result: AMResult) => {
     setFormItems((prev) =>
-      prev.map((item) => (item.itemId === itemId ? { ...item, result } : item))
+      prev.map((item) => {
+        if (item.itemId === itemId) {
+          return {
+            ...item,
+            result,
+            note: result === 'PASS' ? '' : item.note,
+          };
+        }
+        return item;
+      })
     );
   };
 
@@ -79,46 +101,38 @@ export function AMModule() {
     );
   };
 
-  const handleQuickPassAll = () => {
-    setFormItems((prev) =>
-      prev.map((item) => ({
-        ...item,
-        result: item.result || 'PASS',
-      }))
-    );
-  };
-
   const handleSubmitAM = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
-    if (!targetEquipmentId) {
-      setFormError('Vui lòng chọn thiết bị thực hiện AM!');
+    const uncompleted = formItems.filter((i) => !i.result);
+    if (uncompleted.length > 0) {
+      setFormError(`Còn ${uncompleted.length} hạng mục chưa được đánh giá! Vui lòng hoàn thành tất cả 14 mục.`);
       return;
     }
 
-    const res = saveAMChecklist({
-      plantId: 'CBTO_PLANT',
+    const unnotedIssues = formItems.filter(
+      (i) => (i.result === 'PASS_TAG' || i.result === 'FAIL') && !i.note.trim()
+    );
+    if (unnotedIssues.length > 0) {
+      setFormError(
+        `Các mục đánh dấu "PASS + TAG" hoặc "FAIL" bắt buộc phải điền mô tả hiện trường để đội bảo trì xử lý!`
+      );
+      return;
+    }
+
+    saveAMChecklist({
       lineId: selectedLineId,
-      equipmentId: targetEquipmentId,
-      productionDate: selectedProductionDate,
       shiftId: selectedShiftId,
+      productionDate: selectedProductionDate,
+      equipmentId: targetEquipmentId,
       items: formItems,
-      status: 'COMPLETED',
-      hasFailOrTag: formItems.some((i) => i.result === 'FAIL' || i.result === 'PASS_TAG'),
-      performedBy: currentUser.uid,
-      performedByName: currentUser.displayName,
     });
-
-    if (!res.success) {
-      setFormError(res.message || 'Lỗi lưu biên bản AM');
-      return;
-    }
 
     setIsModalOpen(false);
   };
 
-  // Filter checklists for current line
+  // Filter checklists for active line
   const filteredChecklists = useMemo(() => {
     return amChecklists.filter((c) => c.lineId === selectedLineId);
   }, [amChecklists, selectedLineId]);
@@ -126,15 +140,15 @@ export function AMModule() {
   const getGroupIcon = (group: string) => {
     switch (group) {
       case 'Cơ khí':
-        return <Wrench className="h-4 w-4 text-sky-400" />;
+        return <Wrench className="h-4 w-4 text-blue-600" />;
       case 'Utility':
-        return <Zap className="h-4 w-4 text-amber-400" />;
+        return <Zap className="h-4 w-4 text-amber-600" />;
       case 'Instrument':
-        return <Gauge className="h-4 w-4 text-emerald-400" />;
+        return <Gauge className="h-4 w-4 text-emerald-600" />;
       case 'An toàn':
-        return <ShieldCheck className="h-4 w-4 text-rose-400" />;
+        return <ShieldCheck className="h-4 w-4 text-[#E31837]" />;
       default:
-        return <Info className="h-4 w-4 text-slate-400" />;
+        return <Info className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -143,20 +157,24 @@ export function AMModule() {
   return (
     <div className="space-y-6">
       {/* Header action bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-gray-200/80 bg-white p-5 shadow-xs">
         <div>
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-orange-400" />
-            <h2 className="text-base font-bold text-white">Kiểm tra thiết bị trước sản xuất (AM)</h2>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-[#E31837]">
+              <ClipboardCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[#202124]">Kiểm tra Thiết bị trước Sản xuất (AM)</h2>
+              <p className="text-xs text-gray-500">
+                Kiểm tra 14 hạng mục (Cơ khí, Utility, Đo lường, An toàn) trên {activeLine?.name || 'Line'}
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-400">
-            Kiểm tra 14 hạng mục (Cơ khí, Utility, Instrument, An toàn) trên {activeLine?.name || 'Line'}
-          </p>
         </div>
 
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 rounded-lg bg-orange-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-orange-950/40 hover:bg-orange-500 transition-all cursor-pointer active:scale-95"
+          className="flex items-center gap-2 rounded-xl bg-[#E31837] px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-red-700 transition-all cursor-pointer active:scale-95"
         >
           <Plus className="h-4 w-4" />
           <span>Lập Biên bản AM mới</span>
@@ -164,97 +182,112 @@ export function AMModule() {
       </div>
 
       {/* Line Equipment Status Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {lineEquipments.map((eq) => {
-          // Check if this equipment has an AM completed for today and current shift
-          const existing = amChecklists.find(
-            (c) =>
-              c.equipmentId === eq.id &&
-              c.productionDate === selectedProductionDate &&
-              c.shiftId === selectedShiftId
-          );
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+            Tình trạng kiểm tra thiết bị {activeLine?.name}
+          </h3>
+          <span className="text-xs text-gray-400">
+            Ca {selectedShiftId.replace('SHIFT_', '')} · Ngày {formatDateVN(selectedProductionDate)}
+          </span>
+        </div>
 
-          return (
-            <div
-              key={eq.id}
-              className={`rounded-xl border p-3.5 transition-all flex flex-col justify-between ${
-                existing
-                  ? existing.hasFailOrTag
-                    ? 'border-amber-500/40 bg-amber-950/20'
-                    : 'border-emerald-500/40 bg-emerald-950/20'
-                  : 'border-slate-800 bg-slate-900/50'
-              }`}
-            >
-              <div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono text-[11px] text-slate-400">{eq.code}</span>
-                  <span className="text-[10px] text-slate-400">{eq.category}</span>
-                </div>
-                <h4 className="mt-1 font-bold text-slate-200 text-sm">{eq.name}</h4>
-              </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {lineEquipments.map((eq) => {
+            const existing = amChecklists.find(
+              (c) =>
+                c.equipmentId === eq.id &&
+                c.productionDate === selectedProductionDate &&
+                c.shiftId === selectedShiftId
+            );
 
-              <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                {existing ? (
-                  <div className="flex items-center gap-1.5">
-                    {existing.hasFailOrTag ? (
-                      <span className="flex items-center gap-1 text-amber-400 font-semibold text-[11px]">
-                        <AlertTriangle className="h-3.5 w-3.5" /> Có lưu ý / FAIL
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-emerald-400 font-semibold text-[11px]">
-                        <CheckCircle className="h-3.5 w-3.5" /> Đạt (PASS)
-                      </span>
-                    )}
+            return (
+              <div
+                key={eq.id}
+                className={`rounded-2xl border p-4 transition-all flex flex-col justify-between bg-white ${
+                  existing
+                    ? existing.hasFailOrTag
+                      ? 'border-amber-300 bg-amber-50/30'
+                      : 'border-emerald-300 bg-emerald-50/20'
+                    : 'border-gray-200/80 hover:border-gray-300'
+                } shadow-xs`}
+              >
+                <div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono text-[11px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                      {eq.code}
+                    </span>
+                    <span className="text-[11px] text-gray-400 font-medium">{eq.category}</span>
                   </div>
-                ) : (
-                  <span className="text-slate-400 text-[11px]">Chưa kiểm tra ca này</span>
-                )}
+                  <h4 className="mt-2 font-bold text-[#202124] text-sm leading-snug">{eq.name}</h4>
+                </div>
 
-                <button
-                  onClick={() => {
-                    if (existing) {
-                      setSelectedAmDetail(existing.id);
-                    } else {
-                      handleOpenModal(eq.id);
-                    }
-                  }}
-                  className={`text-[11px] font-semibold underline cursor-pointer ${
-                    existing ? 'text-slate-300 hover:text-white' : 'text-orange-400 hover:text-orange-300'
-                  }`}
-                >
-                  {existing ? 'Xem biên bản' : 'Thực hiện ngay →'}
-                </button>
+                <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+                  {existing ? (
+                    <div className="flex items-center gap-1.5">
+                      {existing.hasFailOrTag ? (
+                        <span className="flex items-center gap-1 text-[#D97706] font-semibold text-[11px]">
+                          <AlertTriangle className="h-3.5 w-3.5" /> Có lưu ý / FAIL
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[#16865B] font-semibold text-[11px]">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Đạt (PASS)
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 text-[11px] font-medium">Chưa kiểm tra ca này</span>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      if (existing) {
+                        setSelectedAmDetail(existing.id);
+                      } else {
+                        handleOpenModal(eq.id);
+                      }
+                    }}
+                    className={`text-[11px] font-bold cursor-pointer transition-colors ${
+                      existing ? 'text-gray-600 hover:text-[#202124]' : 'text-[#E31837] hover:underline'
+                    }`}
+                  >
+                    {existing ? 'Xem biên bản →' : 'Kiểm tra ngay →'}
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* AM Checklists History Table */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
-        <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-          <h3 className="font-bold text-slate-200 text-sm">Lịch sử biên bản AM ({filteredChecklists.length})</h3>
-          <span className="text-xs text-slate-400">Ngày {formatDateVN(selectedProductionDate)}</span>
+      <div className="rounded-2xl border border-gray-200/80 bg-white shadow-xs overflow-hidden">
+        <div className="border-b border-gray-100 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[#E31837]" />
+            <h3 className="font-bold text-[#202124] text-sm">Lịch sử biên bản AM ({filteredChecklists.length})</h3>
+          </div>
+          <span className="text-xs text-gray-500 font-medium">Hôm nay: {formatDateVN(selectedProductionDate)}</span>
         </div>
 
         {filteredChecklists.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 text-xs">
+          <div className="p-10 text-center text-gray-400 text-xs">
             Chưa có biên bản AM nào trên {activeLine?.name}. Bấm &quot;Lập Biên bản AM mới&quot; để bắt đầu.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-300">
-              <thead className="border-b border-slate-800 bg-slate-800/50 text-slate-400">
+            <table className="w-full text-left text-xs text-gray-700">
+              <thead className="border-b border-gray-100 bg-gray-50/70 text-gray-500 font-semibold">
                 <tr>
-                  <th className="px-4 py-2.5">Thời điểm</th>
-                  <th className="px-4 py-2.5">Ca / Ngày</th>
-                  <th className="px-4 py-2.5">Thiết bị</th>
-                  <th className="px-4 py-2.5">Kết quả tổng thể</th>
-                  <th className="px-4 py-2.5">Người thực hiện</th>
-                  <th className="px-4 py-2.5 text-right">Chi tiết</th>
+                  <th className="px-5 py-3">Thời điểm</th>
+                  <th className="px-5 py-3">Ca / Ngày</th>
+                  <th className="px-5 py-3">Thiết bị</th>
+                  <th className="px-5 py-3">Kết quả</th>
+                  <th className="px-5 py-3">Người thực hiện</th>
+                  <th className="px-5 py-3 text-right">Chi tiết</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-gray-100">
                 {filteredChecklists.map((c) => {
                   const eq = lineEquipments.find((e) => e.id === c.equipmentId);
                   const passCount = c.items.filter((i) => i.result === 'PASS').length;
@@ -262,40 +295,47 @@ export function AMModule() {
                   const failCount = c.items.filter((i) => i.result === 'FAIL').length;
 
                   return (
-                    <tr key={c.id} className="hover:bg-slate-800/30">
-                      <td className="px-4 py-3 font-mono text-[11px] text-slate-400">{formatDateTime(c.performedAt)}</td>
-                      <td className="px-4 py-3">
-                        <span className="font-semibold text-slate-200">{c.shiftId.replace('SHIFT_', 'Ca ')}</span>
-                        <span className="text-slate-400 text-[11px] block">{formatDateVN(c.productionDate)}</span>
+                    <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="px-5 py-3.5 font-mono text-[11px] text-gray-500">{formatDateTime(c.performedAt)}</td>
+                      <td className="px-5 py-3.5">
+                        <span className="font-semibold text-[#202124]">{c.shiftId.replace('SHIFT_', 'Ca ')}</span>
+                        <span className="text-gray-400 text-[11px] block">{formatDateVN(c.productionDate)}</span>
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-200">
+                      <td className="px-5 py-3.5 font-medium text-[#202124]">
                         {eq?.name || c.equipmentId}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border ${
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
                               failCount > 0
-                                ? 'bg-rose-950/60 text-rose-400 border-rose-800/60'
+                                ? 'bg-red-50 text-[#C62828] border border-red-200'
                                 : tagCount > 0
-                                ? 'bg-amber-950/60 text-amber-400 border-amber-800/60'
-                                : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60'
+                                ? 'bg-amber-50 text-[#D97706] border border-amber-200'
+                                : 'bg-emerald-50 text-[#16865B] border border-emerald-200'
                             }`}
                           >
+                            {failCount > 0 ? (
+                              <XCircle className="h-3 w-3" />
+                            ) : tagCount > 0 ? (
+                              <AlertTriangle className="h-3 w-3" />
+                            ) : (
+                              <CheckCircle2 className="h-3 w-3" />
+                            )}
                             {failCount > 0 ? 'FAIL' : tagCount > 0 ? 'PASS + TAG' : 'PASS'}
                           </span>
-                          <span className="text-[11px] text-slate-400">
-                            {passCount} đạt / {tagCount} tag / {failCount} fail
+                          <span className="text-[11px] text-gray-500">
+                            {passCount} đạt · {tagCount} tag · {failCount} fail
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-slate-400">{c.performedByName}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-5 py-3.5 text-gray-600">{c.performedByName}</td>
+                      <td className="px-5 py-3.5 text-right">
                         <button
                           onClick={() => setSelectedAmDetail(c.id)}
-                          className="text-orange-400 hover:text-orange-300 font-medium underline"
+                          className="text-[#E31837] hover:underline font-semibold cursor-pointer"
                         >
-                          Xem chi tiết
+                          Chi tiết
                         </button>
                       </td>
                     </tr>
@@ -309,40 +349,40 @@ export function AMModule() {
 
       {/* AM Form Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden my-6">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-850">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white shadow-2xl overflow-hidden my-6">
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 bg-gray-50/70">
               <div>
-                <h3 className="font-bold text-white text-base">Biên bản Kiểm tra Thiết bị trước Sản xuất (AM)</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="font-bold text-[#202124] text-base">Biên bản Kiểm tra Thiết bị (AM)</h3>
+                <p className="text-xs text-gray-500">
                   {activeLine?.name} · {selectedShiftId.replace('SHIFT_', 'Ca ')} · Ngày {selectedProductionDate}
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="rounded-full p-1.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700 cursor-pointer"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitAM} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSubmitAM} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               {formError && (
-                <div className="rounded-lg border border-rose-500/50 bg-rose-950/30 p-3 text-xs text-rose-300 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#C62828]" />
                   <span>{formError}</span>
                 </div>
               )}
 
               {/* Equipment selector */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Chọn thiết bị kiểm tra <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Chọn thiết bị kiểm tra <span className="text-[#E31837]">*</span>
                 </label>
                 <select
                   value={targetEquipmentId}
                   onChange={(e) => setTargetEquipmentId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-white focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-[#202124] focus:border-[#E31837] focus:outline-none"
                   required
                 >
                   {lineEquipments.map((eq) => (
@@ -354,14 +394,14 @@ export function AMModule() {
               </div>
 
               {/* Quick Fill Button */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                <span className="text-xs font-bold text-slate-200">Danh mục 14 hạng mục kiểm tra</span>
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <span className="text-xs font-bold text-gray-800">Danh mục 14 hạng mục tiêu chuẩn</span>
                 <button
                   type="button"
                   onClick={handleQuickPassAll}
-                  className="text-xs text-sky-400 hover:text-sky-300 font-medium underline cursor-pointer"
+                  className="text-xs text-[#E31837] hover:underline font-bold cursor-pointer"
                 >
-                  Đánh dấu PASS tất cả
+                  ✓ Đánh dấu PASS tất cả
                 </button>
               </div>
 
@@ -372,27 +412,27 @@ export function AMModule() {
                   if (groupItems.length === 0) return null;
 
                   return (
-                    <div key={groupName} className="rounded-xl border border-slate-800 bg-slate-850/60 p-3.5 space-y-3">
-                      <div className="flex items-center gap-2 font-bold text-slate-200 text-xs border-b border-slate-800/80 pb-2">
+                    <div key={groupName} className="rounded-2xl border border-gray-200 bg-gray-50/50 p-4 space-y-3">
+                      <div className="flex items-center gap-2 font-bold text-[#202124] text-xs border-b border-gray-200/70 pb-2.5">
                         {getGroupIcon(groupName)}
                         <span>Nhóm {groupName}</span>
                       </div>
 
                       <div className="space-y-3">
                         {groupItems.map((item) => (
-                          <div key={item.itemId} className="space-y-2 rounded-lg bg-slate-900/60 p-2.5">
+                          <div key={item.itemId} className="space-y-2 rounded-xl bg-white p-3 border border-gray-200/70">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                              <span className="text-xs text-slate-300 font-medium">{item.title}</span>
+                              <span className="text-xs text-gray-800 font-semibold">{item.title}</span>
 
                               {/* 3 Result Buttons */}
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <button
                                   type="button"
                                   onClick={() => setItemResult(item.itemId, 'PASS')}
-                                  className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
+                                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer min-h-[36px] ${
                                     item.result === 'PASS'
-                                      ? 'bg-emerald-600 text-white shadow-sm'
-                                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                                      ? 'bg-[#16865B] text-white shadow-xs'
+                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                   }`}
                                 >
                                   PASS
@@ -400,10 +440,10 @@ export function AMModule() {
                                 <button
                                   type="button"
                                   onClick={() => setItemResult(item.itemId, 'PASS_TAG')}
-                                  className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
+                                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer min-h-[36px] ${
                                     item.result === 'PASS_TAG'
-                                      ? 'bg-amber-600 text-white shadow-sm'
-                                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                                      ? 'bg-[#D97706] text-white shadow-xs'
+                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                   }`}
                                 >
                                   PASS + TAG
@@ -411,10 +451,10 @@ export function AMModule() {
                                 <button
                                   type="button"
                                   onClick={() => setItemResult(item.itemId, 'FAIL')}
-                                  className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${
+                                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer min-h-[36px] ${
                                     item.result === 'FAIL'
-                                      ? 'bg-rose-600 text-white shadow-sm'
-                                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                                      ? 'bg-[#C62828] text-white shadow-xs'
+                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                   }`}
                                 >
                                   FAIL
@@ -424,7 +464,7 @@ export function AMModule() {
 
                             {/* Note input required if FAIL or PASS_TAG */}
                             {(item.result === 'PASS_TAG' || item.result === 'FAIL') && (
-                              <div className="mt-1">
+                              <div className="mt-1.5">
                                 <input
                                   type="text"
                                   value={item.note}
@@ -434,7 +474,7 @@ export function AMModule() {
                                       ? 'Bắt buộc ghi chú lý do FAIL và cảnh báo hiện trường...'
                                       : 'Bắt buộc ghi chú dấu hiệu bất thường lưu ý (TAG)...'
                                   }
-                                  className="w-full rounded border border-amber-600/50 bg-slate-950 px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-amber-400 focus:outline-none"
+                                  className="w-full rounded-lg border border-amber-300 bg-amber-50/40 px-3 py-2 text-xs text-[#202124] placeholder-gray-400 focus:border-[#D97706] focus:outline-none"
                                   required
                                 />
                               </div>
@@ -448,22 +488,22 @@ export function AMModule() {
               </div>
 
               {/* Footer info & Buttons */}
-              <div className="border-t border-slate-800 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-xs text-slate-400">
-                  Người thực hiện: <strong className="text-slate-200">{currentUser.displayName}</strong>
+              <div className="border-t border-gray-100 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-gray-500">
+                  Người thực hiện: <strong className="text-[#202124]">{currentUser.displayName}</strong>
                 </span>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 sm:flex-initial rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800"
+                    className="flex-1 sm:flex-initial rounded-xl border border-gray-200 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-100 cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 sm:flex-initial rounded-lg bg-orange-600 px-5 py-2 text-xs font-bold text-white hover:bg-orange-500 shadow-md shadow-orange-950/40 cursor-pointer"
+                    className="flex-1 sm:flex-initial rounded-xl bg-[#E31837] px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 shadow-sm cursor-pointer"
                   >
                     Lưu & Hoàn thành AM
                   </button>
@@ -476,63 +516,63 @@ export function AMModule() {
 
       {/* AM Detail Modal */}
       {detailReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-xl rounded-3xl border border-gray-200 bg-white shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <div>
-                <h3 className="font-bold text-white text-base">Chi tiết Biên bản AM</h3>
-                <p className="text-xs text-slate-400">Mã biên bản: {detailReport.id}</p>
+                <h3 className="font-bold text-[#202124] text-base">Chi tiết Biên bản AM</h3>
+                <p className="text-xs text-gray-500">Mã biên bản: {detailReport.id}</p>
               </div>
               <button
                 onClick={() => setSelectedAmDetail(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-800/40 p-3 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-2 gap-3 text-xs bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
               <div>
-                <span className="text-slate-400">Line:</span>{' '}
-                <span className="font-semibold text-white">{detailReport.lineId}</span>
+                <span className="text-gray-500">Line:</span>{' '}
+                <span className="font-bold text-[#202124]">{detailReport.lineId}</span>
               </div>
               <div>
-                <span className="text-slate-400">Ca / Ngày:</span>{' '}
-                <span className="font-semibold text-white">
+                <span className="text-gray-500">Ca / Ngày:</span>{' '}
+                <span className="font-bold text-[#202124]">
                   {detailReport.shiftId.replace('SHIFT_', 'Ca ')} · {formatDateVN(detailReport.productionDate)}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400">Người thực hiện:</span>{' '}
-                <span className="font-semibold text-white">{detailReport.performedByName}</span>
+                <span className="text-gray-500">Người thực hiện:</span>{' '}
+                <span className="font-bold text-[#202124]">{detailReport.performedByName}</span>
               </div>
               <div>
-                <span className="text-slate-400">Thời điểm:</span>{' '}
-                <span className="font-semibold text-white">{formatDateTime(detailReport.performedAt)}</span>
+                <span className="text-gray-500">Thời điểm:</span>{' '}
+                <span className="font-bold text-[#202124]">{formatDateTime(detailReport.performedAt)}</span>
               </div>
             </div>
 
-            <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/60 pr-1 text-xs">
+            <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 pr-1 text-xs">
               {detailReport.items.map((item) => (
-                <div key={item.itemId} className="py-2 space-y-1">
+                <div key={item.itemId} className="py-2.5 space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-200">
+                    <span className="font-semibold text-gray-800">
                       [{item.group}] {item.title}
                     </span>
                     <span
-                      className={`font-bold px-2 py-0.5 rounded text-[10px] border ${
+                      className={`font-bold px-2.5 py-0.5 rounded-full text-[10px] border ${
                         item.result === 'PASS'
-                          ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60'
+                          ? 'bg-emerald-50 text-[#16865B] border-emerald-200'
                           : item.result === 'PASS_TAG'
-                          ? 'bg-amber-950/60 text-amber-400 border-amber-800/60'
-                          : 'bg-rose-950/60 text-rose-400 border-rose-800/60'
+                          ? 'bg-amber-50 text-[#D97706] border-amber-200'
+                          : 'bg-red-50 text-[#C62828] border-red-200'
                       }`}
                     >
                       {item.result === 'PASS_TAG' ? 'PASS + TAG' : item.result}
                     </span>
                   </div>
                   {item.note && (
-                    <p className="text-amber-300/90 bg-amber-950/30 p-1.5 rounded text-[11px] border border-amber-900/30">
+                    <p className="text-amber-800 bg-amber-50 p-2 rounded-lg text-[11px] border border-amber-200">
                       <strong>Ghi chú:</strong> {item.note}
                     </p>
                   )}
@@ -540,10 +580,10 @@ export function AMModule() {
               ))}
             </div>
 
-            <div className="border-t border-slate-800 pt-3 flex justify-end">
+            <div className="border-t border-gray-100 pt-3 flex justify-end">
               <button
                 onClick={() => setSelectedAmDetail(null)}
-                className="rounded-lg bg-slate-800 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700"
+                className="rounded-xl bg-gray-100 px-5 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-200 cursor-pointer"
               >
                 Đóng
               </button>

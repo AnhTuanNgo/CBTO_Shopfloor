@@ -17,7 +17,6 @@ import {
   formatDateTime,
   formatTime,
   formatDateVN,
-  calculateNonOverlappingMinutes,
   calculateImpactMetrics,
   calculateScopeLossMetrics,
   getImpactLabel,
@@ -31,7 +30,6 @@ import { useCurrentTimestamp } from '@/hooks/use-current-time';
 import {
   ClockAlert,
   Plus,
-  Square,
   AlertCircle,
   BarChart3,
   Layers,
@@ -39,20 +37,17 @@ import {
   Check,
   Clock,
   Sparkles,
-  Wrench,
   Search,
   Eye,
   Trash2,
   Calendar,
   Filter,
-  Info,
   X,
-  ListFilter,
-  CheckCircle,
   AlertTriangle,
-  HelpCircle,
   Activity,
   Edit3,
+  Flame,
+  RotateCw,
 } from 'lucide-react';
 
 const OFFICIAL_LOSS_GROUPS: LossGroup[] = [
@@ -138,15 +133,12 @@ const DOWNTIME_REASONS: Record<LossGroup, string[]> = {
     'Độ Brix chưa đạt yêu cầu công nghệ',
     'Chờ QA kiểm nghiệm vi sinh / cảm quan',
     'Hiệu chỉnh nồng độ pH axit mẻ tương',
-    'Màu sắc tương chưa đạt chuẩn',
   ],
   'Chờ tương': [
-    'Dừng nấu (ứ bồn ĐG)',
-    'Buffer làm nguội',
-    'Bồn đệm trung gian đầy (nghẽn downstream)',
-    'Thiếu tương cấp vào máy chiết rót',
-    'Tắc đường ống bơm chuyển tương',
-    'Chờ giải phóng bồn chứa thành phẩm',
+    'Đóng gói chờ tương do bồn nấu chưa xong',
+    'Nấu xong nhưng bồn làm nguội chưa giải phóng',
+    'Chờ kiểm nghiệm cảm quan đạt chuẩn trước khi chiết',
+    'Chờ đồng hóa mẻ tương tiếp theo',
   ],
   Changeover: [
     'Chuyển đổi SKU sản phẩm trên Line',
@@ -166,71 +158,6 @@ const DOWNTIME_REASONS: Record<LossGroup, string[]> = {
     'Sự cố môi trường / kiểm tra định kỳ',
     'Lý do khác (ghi rõ ở phần Ghi chú)',
   ],
-};
-
-// Color badge helper for Lines to match shopfloor display exactly
-const getLineBadgeStyle = (lineId: string, lines: Line[]) => {
-  const line = lines.find((l) => l.id === lineId);
-  const code = line?.code || lineId;
-  const isLine2 = lineId === 'LINE_02' || code === 'L02';
-  const isLine3 = lineId === 'LINE_03' || code === 'L03';
-  const isLine1 = lineId === 'LINE_01' || code === 'L01';
-
-  if (isLine2) {
-    return {
-      label: 'Auto 2',
-      fullLabel: line?.name || 'Line Chiết 2',
-      badgeClass: 'bg-teal-500 text-white font-bold',
-      pillClass: 'bg-teal-700/90 text-white font-medium hover:bg-teal-600',
-      timeClass: 'bg-teal-800 text-teal-100',
-      durClass: 'bg-teal-600 text-white font-black',
-      accentColor: '#14b8a6',
-    };
-  }
-  if (isLine3) {
-    return {
-      label: 'Auto 3',
-      fullLabel: line?.name || 'Line Chế biến 3',
-      badgeClass: 'bg-amber-500 text-white font-bold',
-      pillClass: 'bg-amber-600/90 text-white font-medium hover:bg-amber-500',
-      timeClass: 'bg-amber-700 text-amber-100',
-      durClass: 'bg-amber-500 text-slate-950 font-black',
-      accentColor: '#f59e0b',
-    };
-  }
-  if (isLine1) {
-    return {
-      label: 'Auto 1',
-      fullLabel: line?.name || 'Line Chế biến 1',
-      badgeClass: 'bg-orange-500 text-white font-bold',
-      pillClass: 'bg-orange-600/90 text-white font-medium hover:bg-orange-500',
-      timeClass: 'bg-orange-800 text-orange-100',
-      durClass: 'bg-orange-500 text-white font-black',
-      accentColor: '#f97316',
-    };
-  }
-  return {
-    label: code || 'Line',
-    fullLabel: line?.name || 'Line Sản Xuất',
-    badgeClass: 'bg-purple-600 text-white font-bold',
-    pillClass: 'bg-purple-700/90 text-white font-medium hover:bg-purple-600',
-    timeClass: 'bg-purple-800 text-purple-100',
-    durClass: 'bg-purple-600 text-white font-black',
-    accentColor: '#a855f7',
-  };
-};
-
-const getShiftBadgeStyle = (shiftId: ShiftId) => {
-  switch (shiftId) {
-    case 'SHIFT_A':
-      return { label: 'Ca 1', class: 'bg-teal-600/90 text-white font-bold' };
-    case 'SHIFT_B':
-      return { label: 'Ca 2', class: 'bg-sky-600/90 text-white font-bold' };
-    case 'SHIFT_C':
-      return { label: 'Ca 3', class: 'bg-indigo-600/90 text-white font-bold' };
-    default:
-      return { label: shiftId, class: 'bg-slate-700 text-slate-200' };
-  }
 };
 
 interface ImpactIntervalDraft {
@@ -300,7 +227,6 @@ export function LossModule() {
 
   const lineEquipments = useMemo(() => getEquipmentsByLine(formLineId), [getEquipmentsByLine, formLineId]);
   const [formEquipmentId, setFormEquipmentId] = useState(lineEquipments[0]?.id || '');
-  const [formStageDetail, setFormStageDetail] = useState(PRODUCTION_STAGES[2]);
 
   const [formCategory, setFormCategory] = useState<LossGroup>('Breakdown');
   const reasonsForCategory = useMemo(() => {
@@ -344,9 +270,6 @@ export function LossModule() {
     return Math.max(0, Math.round((e - s) / 60000));
   }, [isOngoing, startDay, startHour, startMin, endDay, endHour, endMin]);
 
-  // ----------------------------------------------------
-  // Step 2 & 3: Operational Impact Intervals Draft
-  // ----------------------------------------------------
   const startIsoString = useMemo(() => {
     try {
       return new Date(`${startDay}T${startHour}:${startMin}:00`).toISOString();
@@ -364,17 +287,19 @@ export function LossModule() {
     }
   }, [isOngoing, endDay, endHour, endMin]);
 
+  // Section 5 Requirement: User actively chooses impact, not pre-filled with an assumed 50% confirmed capacity reduction!
+  // Default to STOP_COOK for Nấu or STOP_PACKING for Đóng gói, but requires user review and selection
   const [draftImpacts, setDraftImpacts] = useState<ImpactIntervalDraft[]>([
     {
       tempId: 'DRAFT_1',
-      impactType: 'REDUCE_COOK_CAPACITY',
+      impactType: 'STOP_COOK',
       affectedLineId: formLineId,
       affectedStage: 'Nấu',
       impactStartedAt: startIsoString,
       impactEndedAt: endIsoString,
-      impactPercent: 50,
+      impactPercent: 100,
       isInsufficientData: false,
-      note: 'Giảm năng lực nấu do sự cố cụm nồi',
+      note: '',
     },
   ]);
 
@@ -394,7 +319,7 @@ export function LossModule() {
     );
   };
 
-  // Evaluate Rule Engine Suggestions based on current form context
+  // Evaluate Rule Suggestions based on current form context
   const ruleSuggestions: RuleSuggestion[] = useMemo(() => {
     const eq = lineEquipments.find((e) => e.id === formEquipmentId);
     return evaluateRuleSuggestions({
@@ -406,12 +331,12 @@ export function LossModule() {
       lossGroup: formCategory,
       downtimeReason: formReason,
       description: formDescription,
-      line2ActiveKettlesCount: 1, // Line 2 1 out of 2 kettle running
+      line2ActiveKettlesCount: 1,
       totalKettles: 2,
     });
   }, [formSource, formOriginStage, formLineId, formEquipmentId, lineEquipments, formCategory, formReason, formDescription]);
 
-  // Apply a Rule Engine suggestion to the draft
+  // Apply a Rule suggestion to the draft
   const handleApplyRuleSuggestion = (sug: RuleSuggestion) => {
     const isNone = sug.suggestedImpactType === 'NONE';
     const isCongestion = sug.suggestedImpactType === 'COOLING_BUFFER_CONGESTION';
@@ -426,7 +351,7 @@ export function LossModule() {
       impactEndedAt: endIsoString,
       impactPercent: percent,
       isInsufficientData: isCongestion && percent === null,
-      note: `Áp dụng theo gợi ý từ Rule Engine: ${sug.title}`,
+      note: `Gợi ý theo bối cảnh: ${sug.title}`,
       suggestedByRule: sug.ruleId,
       userModifiedRule: false,
     };
@@ -436,9 +361,8 @@ export function LossModule() {
 
   // Add another impact interval for multi-interval events
   const handleAddDraftInterval = () => {
-    // If current draft has "NONE", cannot add multi-impacts
     if (draftImpacts.some((d) => d.impactType === 'NONE')) {
-      alert('Sự kiện đang chọn "Không ảnh hưởng vận hành" (tùy chọn loại trừ). Hãy đổi loại ảnh hưởng trước khi thêm khoảng mới.');
+      setFormError('Sự kiện đang chọn "Không ảnh hưởng vận hành" (tùy chọn loại trừ). Hãy đổi loại ảnh hưởng trước khi thêm khoảng mới.');
       return;
     }
 
@@ -451,7 +375,7 @@ export function LossModule() {
       impactEndedAt: endIsoString,
       impactPercent: 100,
       isInsufficientData: false,
-      note: 'Khoảng ảnh hưởng tiếp theo',
+      note: '',
       userModifiedRule: true,
     };
     setDraftImpacts((prev) => [...prev, newInterval]);
@@ -478,7 +402,7 @@ export function LossModule() {
 
   const handleDeleteDraftInterval = (tempId: string) => {
     if (draftImpacts.length <= 1) {
-      alert('Sự kiện phải có ít nhất một khai báo ảnh hưởng vận hành!');
+      setFormError('Sự kiện phải có ít nhất một khai báo ảnh hưởng vận hành!');
       return;
     }
     setDraftImpacts((prev) => prev.filter((d) => d.tempId !== tempId));
@@ -528,7 +452,7 @@ export function LossModule() {
       const eDate = new Date(endIsoString || '');
       const sDate = new Date(startIsoString);
       if (eDate.getTime() < sDate.getTime()) {
-        setFormError('Thời gian kết thúc không được nhỏ hơn thời gian bắt đầu (AC-07)!');
+        setFormError('Thời gian kết thúc không được nhỏ hơn thời gian bắt đầu!');
         return;
       }
     }
@@ -550,18 +474,15 @@ export function LossModule() {
         eventId: '',
         impactType: d.impactType,
         impactScope: getImpactScope(d.impactType),
-        affectedLineId: d.affectedLineId || formLineId,
-        affectedStage: d.affectedStage || formOriginStage,
-        affectedEquipmentId: formEquipmentId,
+        affectedLineId: d.affectedLineId,
+        affectedStage: d.affectedStage,
         impactStartedAt: d.impactStartedAt,
         impactEndedAt: d.impactEndedAt,
         impactPercent: d.isInsufficientData ? null : d.impactPercent,
         convertedLossMinutes: metrics.convertedLossMinutes,
-        confirmationStatus: d.isInsufficientData
-          ? 'INSUFFICIENT_DATA'
-          : d.impactEndedAt === null
-          ? 'PROVISIONAL'
-          : 'CONFIRMED',
+        confirmationStatus: (metrics.status === 'PROVISIONAL'
+          ? 'CONFIRMED'
+          : metrics.status) as ImpactConfirmationStatus,
         suggestedByRule: d.suggestedByRule,
         userModifiedRule: d.userModifiedRule,
         confirmedBy: currentUser.uid,
@@ -580,47 +501,42 @@ export function LossModule() {
       source: formSource,
       originStage: formOriginStage,
       description: formDescription,
-      productionStage: formStageDetail,
       downtimeReason: formReason,
-      note: formNote.trim(),
-      affectsLineStop: draftImpacts.some((d) => d.impactType !== 'NONE'),
+      note: formNote,
+      affectsLineStop: draftImpacts.some((d) => d.impactType === 'STOP_COOK' || d.impactType === 'STOP_PACKING'),
       productionDate: formProdDay,
       shiftId: formShiftId,
       startedAt: startIsoString,
-      endedAt: endIsoString,
+      endedAt: isOngoing ? null : endIsoString,
       durationMinutes: calculatedDuration,
       impacts: finalImpacts,
     });
 
     if (!res.success) {
-      setFormError(res.message || 'Lỗi lưu thông tin sự cố');
+      setFormError(res.message || 'Lỗi khi lưu sự cố!');
       return;
     }
 
-    setFormSuccess('✓ Đã ghi nhận Sự cố & Ảnh hưởng vận hành thành công!');
-    setFormDescription('');
-    setFormNote('');
+    setFormSuccess('Đã ghi nhận sự cố và ảnh hưởng vận hành thành công!');
     setTimeout(() => {
-      setFormSuccess('');
-      setFilterLineId(formLineId);
       setViewMode('list');
+      setFormSuccess('');
     }, 1000);
   };
 
-  // Close ongoing stop
+  // Close ongoing loss log
   const handleOpenEndModal = (id: string) => {
     setEndingLogId(id);
-    const d = new Date();
-    const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    setEndDateTimeInput(localIso);
+    const now = new Date();
+    setEndDateTimeInput(now.toISOString().slice(0, 16));
   };
 
-  const handleConfirmEndLoss = () => {
+  const handleConfirmEndLog = () => {
     if (!endingLogId) return;
     const endIso = endDateTimeInput ? new Date(endDateTimeInput).toISOString() : new Date().toISOString();
     const res = endLossLog(endingLogId, endIso);
     if (!res.success) {
-      alert(res.message);
+      setFormError(res.message || 'Lỗi khi kết thúc sự cố!');
       return;
     }
     setEndingLogId(null);
@@ -629,12 +545,10 @@ export function LossModule() {
     }
   };
 
-  const handleDeleteLog = (id: string, reasonTitle?: string) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa bản ghi dừng máy "${reasonTitle || id}"?`)) {
-      deleteLossLog(id);
-      if (detailModalLog && detailModalLog.id === id) {
-        setDetailModalLog(null);
-      }
+  const handleDeleteLog = (id: string) => {
+    deleteLossLog(id);
+    if (detailModalLog && detailModalLog.id === id) {
+      setDetailModalLog(null);
     }
   };
 
@@ -643,610 +557,137 @@ export function LossModule() {
     confirmImpact(eventId, impactId, quickConfirmPercent, quickConfirmNote || 'Đã xác nhận mức ảnh hưởng thực tế.');
     setQuickConfirmImpactId(null);
     setQuickConfirmNote('');
-    // Refresh detail modal view
-    const updatedLog = lossLogs.find((l) => l.id === eventId);
-    if (updatedLog) setDetailModalLog(updatedLog);
   };
 
-  // Filtered loss logs
+  // Filtered logs
   const filteredLossLogs = useMemo(() => {
-    return lossLogs.filter((log) => {
-      if (filterLineId !== 'ALL' && log.lineId !== filterLineId) return false;
-      if (filterShiftId !== 'ALL' && log.shiftId !== filterShiftId) return false;
-      if (!isFilterAllDates && log.productionDate !== filterDate) return false;
+    return lossLogs.filter((l) => {
+      if (filterLineId !== 'ALL' && l.lineId !== filterLineId) return false;
+      if (filterShiftId !== 'ALL' && l.shiftId !== filterShiftId) return false;
+      if (!isFilterAllDates && l.productionDate !== filterDate) return false;
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
-        const reason = (log.downtimeReason || '').toLowerCase();
-        const note = (log.note || '').toLowerCase();
-        const group = (log.lossGroup || '').toLowerCase();
-        const src = (log.source || '').toLowerCase();
-        const orgStage = (log.originStage || '').toLowerCase();
-        const reported = (log.reportedByName || '').toLowerCase();
-        const eq = (log.equipmentId || '').toLowerCase();
-        const impactsMatch = (log.impacts || []).some((imp) =>
-          getImpactLabel(imp.impactType).toLowerCase().includes(term)
-        );
-        return (
-          reason.includes(term) ||
-          note.includes(term) ||
-          group.includes(term) ||
-          src.includes(term) ||
-          orgStage.includes(term) ||
-          reported.includes(term) ||
-          eq.includes(term) ||
-          impactsMatch
-        );
+        const matchDesc = l.description?.toLowerCase().includes(term);
+        const matchReason = l.downtimeReason?.toLowerCase().includes(term);
+        const matchGroup = l.lossGroup?.toLowerCase().includes(term);
+        const matchEq = l.equipmentId?.toLowerCase().includes(term);
+        if (!matchDesc && !matchReason && !matchGroup && !matchEq) return false;
       }
       return true;
     });
   }, [lossLogs, filterLineId, filterShiftId, filterDate, isFilterAllDates, searchTerm]);
 
-  // Aggregate scope-based loss metrics across filtered logs
-  const scopeLossMetrics = useMemo(() => {
+  // Scope summary for active filter view
+  const currentViewScopeMetrics = useMemo(() => {
     const allImpacts = filteredLossLogs.flatMap((l) => l.impacts || []);
     return calculateScopeLossMetrics(allImpacts, nowMs);
   }, [filteredLossLogs, nowMs]);
 
-  // Top active ongoing losses
-  const activeLossesOnLine = useMemo(() => {
-    return lossLogs.filter((l) => l.lineId === selectedLineId && l.endedAt === null);
-  }, [lossLogs, selectedLineId]);
+  const ongoingLossLogs = useMemo(() => {
+    return filteredLossLogs.filter((l) => l.endedAt === null);
+  }, [filteredLossLogs]);
 
   return (
     <div className="space-y-6">
-      {/* ========================================================================= */}
-      {/* TOP HEADER: TITLE & 3 VIEW MODES                                           */}
-      {/* ========================================================================= */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-600 text-white shrink-0 shadow-sm">
-            <ClockAlert className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-lg font-bold text-white tracking-tight">
-                Quản Lý Dừng Máy & Loss CBTO
-              </h1>
-              <span className="text-xs font-medium text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
-                Mô hình Ảnh hưởng Vận hành
-              </span>
+      {/* Module Title & Mode Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl bg-white border border-gray-200/80 p-5 sm:p-6 shadow-xs">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-100 text-[#E31837]">
+              <ClockAlert className="h-5 w-5" />
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Tách biệt độc lập: Nguồn · Nguyên nhân · Công đoạn · Ảnh hưởng vận hành · Mức % · Loss quy đổi tương đương
-            </p>
+            <div>
+              <h1 className="text-lg font-black text-gray-900 tracking-tight">
+                Quản Lý Dừng Máy & Loss Time CBTO
+              </h1>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Mô hình quy đổi ảnh hưởng: Nguyên nhân gốc → Ảnh hưởng thực tế → Loss tương đương
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* 3 Main View Tabs - Segmented Control */}
-        <div className="flex items-center gap-1 rounded-lg bg-slate-800/90 p-1 border border-slate-700/70 self-start md:self-center">
+        {/* View Switcher: List vs Entry vs Analytics */}
+        <div className="flex items-center gap-1 rounded-2xl bg-gray-100 p-1 border border-gray-200/60 self-start sm:self-center shadow-inner">
           <button
             onClick={() => setViewMode('list')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               viewMode === 'list'
-                ? 'bg-orange-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                ? 'bg-white text-gray-900 shadow-xs'
+                : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            <ListFilter className="h-3.5 w-3.5" />
-            <span>Nhật ký sự cố & Loss</span>
-            <span className="ml-0.5 rounded bg-black/20 px-1.5 py-0.5 text-[11px] font-mono tabular-nums">
-              {filteredLossLogs.length}
-            </span>
+            Danh sách sự cố ({filteredLossLogs.length})
           </button>
-
           <button
             onClick={() => setViewMode('entry')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               viewMode === 'entry'
-                ? 'bg-orange-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                ? 'bg-[#E31837] text-white shadow-xs'
+                : 'text-gray-500 hover:text-gray-800'
             }`}
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Ghi nhận sự cố mới</span>
           </button>
-
           <button
             onClick={() => setViewMode('analytics')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               viewMode === 'analytics'
-                ? 'bg-orange-600 text-white shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                ? 'bg-white text-gray-900 shadow-xs'
+                : 'text-gray-500 hover:text-gray-800'
             }`}
           >
-            <BarChart3 className="h-3.5 w-3.5" />
-            <span>Phân bổ 9 nhóm Loss</span>
+            Báo cáo phân tích
           </button>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* VIEW 1: NHẬT KÝ LOSS CHI TIẾT THEO LINE                                     */}
-      {/* ========================================================================= */}
-      {viewMode === 'list' && (
-        <div className="space-y-5">
-          {/* 4 Scope-separated Loss Metrics (Anti-Duplication Principle) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* Scope 1: Nấu */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-sky-400 font-semibold">
-                <span>Phạm vi Cụm Nấu</span>
-                <span className="text-[11px] text-slate-500 font-normal">Công đoạn Nấu</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-bold text-white font-mono tabular-nums">
-                  {scopeLossMetrics['Nấu'].totalConvertedLossMinutes}
-                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút</span>
-                </span>
-                <span className="text-xs text-slate-400 font-mono tabular-nums">
-                  sự cố: {scopeLossMetrics['Nấu'].totalDurationMinutes}m
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 line-clamp-1">
-                Tổn thất quy đổi thực tế cụm nồi nấu
-              </p>
-            </div>
-
-            {/* Scope 2: Cấp tương */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-teal-400 font-semibold">
-                <span>Phạm vi Cấp Tương</span>
-                <span className="text-[11px] text-slate-500 font-normal">Buffer / Làm nguội</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-bold text-white font-mono tabular-nums">
-                  {scopeLossMetrics['Cấp tương'].totalConvertedLossMinutes}
-                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút</span>
-                </span>
-                {scopeLossMetrics['Cấp tương'].hasInsufficientData && (
-                  <span className="text-[11px] font-medium text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/40">
-                    Chưa đủ dữ liệu ứ bồn
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-slate-400 line-clamp-1">
-                Dừng cấp hoặc ứ bồn làm nguội
-              </p>
-            </div>
-
-            {/* Scope 3: Đóng gói */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-amber-400 font-semibold">
-                <span>Phạm vi Đóng Gói</span>
-                <span className="text-[11px] text-slate-500 font-normal">Chiết rót / Đóng thùng</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-bold text-white font-mono tabular-nums">
-                  {scopeLossMetrics['Đóng gói'].totalConvertedLossMinutes}
-                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút</span>
-                </span>
-                <span className="text-xs text-slate-400 font-mono tabular-nums">
-                  sự cố: {scopeLossMetrics['Đóng gói'].totalDurationMinutes}m
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 line-clamp-1">
-                Không cộng mù quáng vào tổng toàn xưởng
-              </p>
-            </div>
-
-            {/* Scope 4: Ongoing tracking */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
-                <span>Sự Cố Đang Tiếp Diễn</span>
-                <span className="text-[11px] text-slate-500 font-normal">Real-time</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-bold text-rose-400 font-mono tabular-nums">
-                  {filteredLossLogs.filter((l) => l.endedAt === null).length}
-                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">sự cố</span>
-                </span>
-                <span className="text-xs text-slate-400 font-mono tabular-nums">
-                  {filteredLossLogs.length} sự kiện lọc
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 line-clamp-1">
-                Tạm tính thời gian thực tế đến hiện tại
-              </p>
-            </div>
+      {/* Global Error Banner */}
+      {formError && (
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-[#E31837]" />
+            <span>{formError}</span>
           </div>
-
-          {/* Clean Segmented Filter Bar */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4 space-y-3.5">
-            {/* Row 1: Line Selector */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 shrink-0">
-                  <Filter className="h-3.5 w-3.5" />
-                  Dây chuyền:
-                </span>
-                <button
-                  onClick={() => setFilterLineId('ALL')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                    filterLineId === 'ALL'
-                      ? 'bg-orange-600 text-white font-semibold shadow-sm'
-                      : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
-                  }`}
-                >
-                  Tất cả Line ({lossLogs.length})
-                </button>
-                {lines.map((l) => {
-                  const isSel = filterLineId === l.id;
-                  const count = lossLogs.filter((x) => x.lineId === l.id).length;
-                  return (
-                    <button
-                      key={l.id}
-                      onClick={() => setFilterLineId(l.id)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
-                        isSel
-                          ? 'bg-orange-600 text-white font-semibold shadow-sm'
-                          : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
-                      }`}
-                    >
-                      <span>{l.code}</span>
-                      <span className="text-[11px] opacity-75 tabular-nums font-mono">({count})</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Primary Action Button */}
-              <button
-                onClick={() => setViewMode('entry')}
-                className="flex items-center gap-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Ghi nhận sự cố & ảnh hưởng</span>
-              </button>
-            </div>
-
-            {/* Row 2: Shift, Date & Search */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-slate-800">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-slate-400 shrink-0">Ca làm việc:</span>
-                <button
-                  onClick={() => setFilterShiftId('ALL')}
-                  className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                    filterShiftId === 'ALL'
-                      ? 'bg-slate-700 text-white font-semibold'
-                      : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Tất cả Ca
-                </button>
-                {SHIFTS.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setFilterShiftId(s.id)}
-                    className={`px-2.5 py-1 text-xs rounded transition-colors ${
-                      filterShiftId === s.id
-                        ? 'bg-orange-600 text-white font-semibold'
-                        : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2.5 flex-wrap">
-                {/* Date Picker */}
-                <div className="flex items-center gap-2 bg-slate-800/90 rounded-lg px-2.5 py-1.5 border border-slate-700 text-xs">
-                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                  <input
-                    type="date"
-                    disabled={isFilterAllDates}
-                    value={filterDate}
-                    onChange={(e) => {
-                      setFilterDate(e.target.value);
-                      setIsFilterAllDates(false);
-                    }}
-                    className="bg-transparent text-slate-200 font-mono text-xs focus:outline-none cursor-pointer disabled:opacity-40"
-                  />
-                  <button
-                    onClick={() => {
-                      setFilterDate(todayStr);
-                      setIsFilterAllDates(false);
-                    }}
-                    className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-                      !isFilterAllDates && filterDate === todayStr
-                        ? 'bg-slate-700 text-white font-semibold'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Hôm nay
-                  </button>
-                  <button
-                    onClick={() => setIsFilterAllDates(!isFilterAllDates)}
-                    className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
-                      isFilterAllDates
-                        ? 'bg-slate-700 text-white font-semibold'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Tất cả
-                  </button>
-                </div>
-
-                {/* Search */}
-                <div className="relative">
-                  <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Tìm sự cố, nguyên nhân, thiết bị..."
-                    className="rounded-lg border border-slate-700 bg-slate-800/90 pl-8 pr-7 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-orange-500 focus:outline-none w-56 sm:w-64"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white text-xs"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ===================================================================== */}
-          {/* THE SHOPFLOOR LOSS EVENT LIST (SPACIOUS ERGONOMIC CARDS)               */}
-          {/* ===================================================================== */}
-          <div className="space-y-3">
-            {filteredLossLogs.length === 0 ? (
-              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-12 text-center text-slate-400 space-y-3">
-                <ClockAlert className="h-8 w-8 mx-auto text-slate-500" />
-                <p className="text-sm font-medium text-slate-300">
-                  Không tìm thấy sự cố dừng máy nào phù hợp với bộ lọc hiện tại.
-                </p>
-                <p className="text-xs text-slate-500">
-                  Hãy thử chọn lại Line, Ca sản xuất hoặc nhấn vào nút bên dưới để ghi nhận sự cố mới.
-                </p>
-                <button
-                  onClick={() => setViewMode('entry')}
-                  className="rounded-lg bg-orange-600 hover:bg-orange-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
-                >
-                  + Ghi nhận sự cố mới
-                </button>
-              </div>
-            ) : (
-              filteredLossLogs.map((log) => {
-                const lineObj = lines.find((l) => l.id === log.lineId);
-                const shiftObj = SHIFTS.find((s) => s.id === log.shiftId);
-                const isLogOngoing = log.endedAt === null;
-                const impacts = log.impacts || [];
-
-                return (
-                  <div
-                    key={log.id}
-                    className="rounded-xl border border-slate-800 bg-slate-900/90 p-4 sm:p-5 hover:border-slate-700 transition-colors space-y-3.5"
-                  >
-                    {/* Top Row: Context Kicker & Duration Status */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                      <div className="flex items-center gap-2 text-xs text-slate-400">
-                        <span className="font-semibold text-slate-200">
-                          {lineObj ? `${lineObj.code} - ${lineObj.name.split(' (')[0]}` : log.lineId}
-                        </span>
-                        <span aria-hidden="true">·</span>
-                        <span>{shiftObj?.name || log.shiftId}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="font-mono">{formatDateVN(log.productionDate)}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className="font-mono text-slate-300">
-                          {formatTime(log.startedAt)} - {log.endedAt ? formatTime(log.endedAt) : 'Đang tiếp diễn'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-                        <span className="text-xs font-mono font-semibold text-slate-300 bg-slate-800 px-2.5 py-1 rounded">
-                          Sự cố {log.durationMinutes} phút
-                        </span>
-                        {isLogOngoing ? (
-                          <button
-                            onClick={() => handleOpenEndModal(log.id)}
-                            className="text-xs font-semibold px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white cursor-pointer transition-colors shadow-sm"
-                          >
-                            Đang dừng máy · Đóng sự cố
-                          </button>
-                        ) : (
-                          <span className="text-xs text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800/40">
-                            Đã kết thúc
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Middle Row: Cause & Description */}
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <h2 className="text-base font-bold text-white tracking-tight">
-                            {log.downtimeReason || log.lossGroup}
-                          </h2>
-                          <span className="text-xs text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded font-mono">
-                            {log.lossGroup}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
-                          <span>Nguồn: <strong className="text-slate-200">{log.source || 'CBTO'}</strong></span>
-                          <span aria-hidden="true">·</span>
-                          <span>Công đoạn gốc: <strong className="text-slate-200">{log.originStage || 'Nấu'}</strong></span>
-                          {log.equipmentId && (
-                            <>
-                              <span aria-hidden="true">·</span>
-                              <span>Thiết bị: <span className="font-mono text-slate-300">{log.equipmentId}</span></span>
-                            </>
-                          )}
-                          <span aria-hidden="true">·</span>
-                          <span>Người ghi: {log.reportedByName || 'NV'}</span>
-                        </div>
-
-                        {(log.description || log.note) && (
-                          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                            {log.description || log.note}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Right Actions: View details & Delete */}
-                      <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
-                        <button
-                          onClick={() => setDetailModalLog(log)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Chi tiết & Rà soát</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteLog(log.id, log.downtimeReason)}
-                          className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
-                          title="Xóa sự cố này"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Operational Impacts Block (The 6-Dimension Model) */}
-                    <div className="rounded-lg bg-slate-950/60 p-3.5 border border-slate-800/80 space-y-2">
-                      <div className="flex items-center justify-between text-xs text-slate-400">
-                        <span className="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">
-                          Ảnh hưởng vận hành thực tế ({impacts.length})
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          Loss quy đổi (phút) = Thời gian ảnh hưởng × Mức % / 100
-                        </span>
-                      </div>
-
-                      {impacts.length === 0 ? (
-                        <p className="text-xs text-slate-500 italic py-1">
-                          Chưa có ảnh hưởng vận hành nào được gắn cho sự kiện này.
-                        </p>
-                      ) : (
-                        <div className="divide-y divide-slate-800/70">
-                          {impacts.map((imp) => {
-                            const isPending =
-                              imp.confirmationStatus === 'UNREVIEWED' ||
-                              imp.confirmationStatus === 'INSUFFICIENT_DATA';
-
-                            return (
-                              <div
-                                key={imp.impactId}
-                                className="py-2.5 first:pt-1 last:pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                              >
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-xs font-semibold text-slate-200">
-                                      {getImpactLabel(imp.impactType)}
-                                    </span>
-                                    <span className="text-xs font-mono font-bold text-amber-400">
-                                      {imp.impactPercent !== null ? `${imp.impactPercent}%` : 'Chưa định %'}
-                                    </span>
-                                    <span className="text-xs text-slate-400">
-                                      (Phạm vi: <strong className="text-slate-300">{imp.impactScope}</strong>)
-                                    </span>
-                                  </div>
-                                  <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                                    <span>Công đoạn: {imp.affectedStage}</span>
-                                    <span aria-hidden="true">·</span>
-                                    <span className="font-mono">
-                                      {formatTime(imp.impactStartedAt)} - {imp.impactEndedAt ? formatTime(imp.impactEndedAt) : 'Đang tiếp diễn'}
-                                    </span>
-                                    {imp.note && (
-                                      <>
-                                        <span aria-hidden="true">·</span>
-                                        <span className="italic text-slate-400 truncate max-w-xs">{imp.note}</span>
-                                      </>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
-                                  {imp.convertedLossMinutes !== null ? (
-                                    <div className="text-right">
-                                      <span className="text-sm font-bold font-mono tabular-nums text-rose-400 bg-rose-950/40 px-2.5 py-1 rounded border border-rose-800/40">
-                                        {imp.convertedLossMinutes}m Loss quy đổi
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs font-medium text-amber-300 bg-amber-950/40 px-2.5 py-1 rounded border border-amber-800/40">
-                                      Chưa đủ dữ liệu
-                                    </span>
-                                  )}
-
-                                  {isPending && (
-                                    <button
-                                      onClick={() => {
-                                        setDetailModalLog(log);
-                                        setQuickConfirmImpactId(imp.impactId);
-                                        setQuickConfirmPercent(imp.impactPercent || 50);
-                                      }}
-                                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 px-2.5 py-1 rounded border border-emerald-800/40 transition-colors cursor-pointer"
-                                    >
-                                      Xác nhận %
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <button onClick={() => setFormError('')} className="p-1 text-gray-400 hover:text-gray-700">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* VIEW 2: GHI NHẬN SỰ CỐ & KHAI BÁO ẢNH HƯỞNG VẬN HÀNH (3 BƯỚC)              */}
-      {/* ========================================================================= */}
+      {/* VIEW MODE 1: ENTRY FORM */}
       {viewMode === 'entry' && (
         <form onSubmit={handleConfirmSubmit} className="space-y-6">
-          {formError && (
-            <div className="rounded-xl border border-rose-500 bg-rose-950/50 p-3.5 text-xs text-rose-200 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
-              <span>{formError}</span>
-            </div>
-          )}
           {formSuccess && (
-            <div className="rounded-xl border border-emerald-500 bg-emerald-950/50 p-3.5 text-xs text-emerald-200 flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               <span>{formSuccess}</span>
             </div>
           )}
 
-          {/* --------------------------------------------------------------------- */}
-          {/* BƯỚC 1: KHAI BÁO SỰ KIỆN & NGUYÊN NHÂN PHÁT SINH                      */}
-          {/* --------------------------------------------------------------------- */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-5 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-800 pb-3.5">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-tight">
-                  01. Thông tin sự cố & nguyên nhân phát sinh
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Tách biệt độc lập: Nguồn gốc · Nguyên nhân kỹ thuật · Công đoạn vật lý
-                </p>
-              </div>
-              <span className="text-xs text-slate-500 font-mono">Bước 1/3</span>
+          {/* PART 1: THÔNG TIN SỰ KIỆN VÀ NGUYÊN NHÂN PHÁT SINH */}
+          <div className="rounded-3xl bg-white border border-gray-200/80 p-5 sm:p-7 space-y-5 shadow-xs">
+            <div className="border-b border-gray-100 pb-3.5">
+              <span className="text-xs font-bold text-[#E31837] uppercase tracking-wider block">Phần 1/4</span>
+              <h2 className="text-base font-black text-gray-900 tracking-tight mt-0.5">
+                01. Thông tin sự kiện và nguyên nhân phát sinh
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Khai báo nguồn, công đoạn và nhóm nguyên nhân gốc phát sinh sự cố tại hiện trường.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Nguồn phát sinh */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Nguồn phát sinh <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700">
+                  Nguồn phát sinh <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formSource}
                   onChange={(e) => setFormSource(e.target.value as LossEventSource)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                 >
                   {LOSS_SOURCES.map((s) => (
                     <option key={s} value={s}>
@@ -1258,13 +699,13 @@ export function LossModule() {
 
               {/* Công đoạn phát sinh */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Công đoạn phát sinh <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700">
+                  Công đoạn phát sinh <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formOriginStage}
                   onChange={(e) => setFormOriginStage(e.target.value as LossOriginStage)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                 >
                   {ORIGIN_STAGES.map((stg) => (
                     <option key={stg} value={stg}>
@@ -1276,7 +717,7 @@ export function LossModule() {
 
               {/* Dây chuyền */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">Dây chuyền</label>
+                <label className="block text-xs font-bold text-gray-700">Dây chuyền</label>
                 <select
                   value={formLineId}
                   onChange={(e) => {
@@ -1284,7 +725,7 @@ export function LossModule() {
                     const eqs = getEquipmentsByLine(e.target.value);
                     if (eqs.length > 0) setFormEquipmentId(eqs[0].id);
                   }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                 >
                   {lines.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -1296,11 +737,11 @@ export function LossModule() {
 
               {/* Thiết bị phát sinh */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">Thiết bị phát sinh</label>
+                <label className="block text-xs font-bold text-gray-700">Thiết bị phát sinh</label>
                 <select
                   value={formEquipmentId}
                   onChange={(e) => setFormEquipmentId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                 >
                   {lineEquipments.map((eq) => (
                     <option key={eq.id} value={eq.id}>
@@ -1312,8 +753,8 @@ export function LossModule() {
 
               {/* Nhóm nguyên nhân MVP (9 nhóm) */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Nhóm nguyên nhân (9 nhóm MVP) <span className="text-rose-400">*</span>
+                <label className="block text-xs font-bold text-gray-700">
+                  Nhóm nguyên nhân (9 nhóm MVP) <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formCategory}
@@ -1323,7 +764,7 @@ export function LossModule() {
                     const base = DOWNTIME_REASONS[grp] || [];
                     if (base.length > 0) setFormReason(base[0]);
                   }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                 >
                   {OFFICIAL_LOSS_GROUPS.map((g) => (
                     <option key={g} value={g}>
@@ -1335,11 +776,11 @@ export function LossModule() {
 
               {/* Nguyên nhân chi tiết */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">Nguyên nhân chi tiết</label>
+                <label className="block text-xs font-bold text-gray-700">Nguyên nhân chi tiết</label>
                 <select
                   value={formReason}
                   onChange={(e) => setFormReason(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                 >
                   {reasonsForCategory.map((r) => (
                     <option key={r} value={r}>
@@ -1349,25 +790,13 @@ export function LossModule() {
                 </select>
               </div>
 
-              {/* Mã nguyên nhân (Cause code) */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">Mã nguyên nhân</label>
-                <input
-                  type="text"
-                  value={formCauseCode}
-                  onChange={(e) => setFormCauseCode(e.target.value)}
-                  placeholder="Ví dụ: BD-MECH-01"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none transition-colors"
-                />
-              </div>
-
               {/* Ca sản xuất */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">Ca sản xuất</label>
+                <label className="block text-xs font-bold text-gray-700">Ca sản xuất</label>
                 <select
                   value={formShiftId}
                   onChange={(e) => setFormShiftId(e.target.value as ShiftId)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                 >
                   {SHIFTS.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -1377,25 +806,35 @@ export function LossModule() {
                 </select>
               </div>
 
+              {/* Ngày sản xuất */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-gray-700">Ngày sản xuất</label>
+                <input
+                  type="date"
+                  value={formProdDay}
+                  onChange={(e) => setFormProdDay(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 font-mono focus:border-[#E31837] focus:outline-none transition-colors"
+                />
+              </div>
+
               {/* Mô tả sự kiện */}
               <div className="col-span-1 sm:col-span-2 lg:col-span-4 space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Mô tả sự kiện chi tiết <span className="text-slate-500 font-normal">(Hiện trường ghi nhận)</span>
+                <label className="block text-xs font-bold text-gray-700">
+                  Mô tả sự kiện chi tiết <span className="text-gray-400 font-normal">(Hiện trường ghi nhận)</span>
                 </label>
                 <textarea
                   rows={2}
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Mô tả hiện tượng: kẹt van bồn nấu, rò rỉ cơ khí, sụt áp steam nguồn cấp..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm text-white focus:border-orange-500 focus:outline-none leading-relaxed transition-colors"
+                  className="w-full rounded-2xl border border-gray-200 bg-gray-50/70 p-3 text-xs text-gray-900 focus:border-[#E31837] focus:outline-none leading-relaxed transition-colors"
                 />
               </div>
 
               {/* Thời điểm bắt đầu sự cố */}
               <div className="col-span-1 sm:col-span-2 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-slate-300">Thời điểm bắt đầu sự cố</label>
-                  {/* Convenient Presets for Operators */}
+                  <label className="block text-xs font-bold text-gray-700">Thời điểm bắt đầu sự cố</label>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
@@ -1407,11 +846,11 @@ export function LossModule() {
                         setStartMin(pad(now.getMinutes()));
                         syncDraftTimestamps(now.toISOString(), isOngoing ? null : endIsoString);
                       }}
-                      className="text-[11px] text-orange-400 hover:text-orange-300 font-medium px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                      className="text-[11px] font-bold text-[#E31837] hover:underline px-1.5 py-0.5 rounded cursor-pointer"
                     >
                       Bây giờ
                     </button>
-                    <span className="text-slate-600">·</span>
+                    <span className="text-gray-300">·</span>
                     <button
                       type="button"
                       onClick={() => {
@@ -1422,7 +861,7 @@ export function LossModule() {
                         setStartMin(pad(past.getMinutes()));
                         syncDraftTimestamps(past.toISOString(), isOngoing ? null : endIsoString);
                       }}
-                      className="text-[11px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                      className="text-[11px] font-medium text-gray-600 hover:text-gray-900 px-1.5 py-0.5 rounded cursor-pointer"
                     >
                       30p trước
                     </button>
@@ -1438,7 +877,7 @@ export function LossModule() {
                       const s = new Date(`${e.target.value}T${startHour}:${startMin}:00`).toISOString();
                       syncDraftTimestamps(s, isOngoing ? null : endIsoString);
                     }}
-                    className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none"
+                    className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none"
                   />
                   <input
                     type="text"
@@ -1449,7 +888,7 @@ export function LossModule() {
                       syncDraftTimestamps(s, isOngoing ? null : endIsoString);
                     }}
                     placeholder="HH (0-23)"
-                    className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
+                    className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
                   />
                   <input
                     type="text"
@@ -1460,16 +899,16 @@ export function LossModule() {
                       syncDraftTimestamps(s, isOngoing ? null : endIsoString);
                     }}
                     placeholder="MM (0-59)"
-                    className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
+                    className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
                   />
                 </div>
               </div>
 
-              {/* Thời điểm kết thúc hoặc Đang diễn ra */}
+              {/* Thời điểm kết thúc sự cố */}
               <div className="col-span-1 sm:col-span-2 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-300">Thời điểm kết thúc sự cố</label>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-rose-300 font-medium">
+                  <label className="block text-xs font-bold text-gray-700">Thời điểm kết thúc sự cố</label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={isOngoing}
@@ -1477,9 +916,9 @@ export function LossModule() {
                         setIsOngoing(e.target.checked);
                         syncDraftTimestamps(startIsoString, e.target.checked ? null : endIsoString);
                       }}
-                      className="rounded border-slate-700 text-rose-600 focus:ring-rose-500 h-4 w-4"
+                      className="rounded border-gray-300 text-[#E31837] focus:ring-[#E31837] cursor-pointer"
                     />
-                    <span>Sự cố đang tiếp diễn (Tạm tính)</span>
+                    <span className="text-xs font-bold text-rose-600">Đang tiếp diễn (Chưa kết thúc)</span>
                   </label>
                 </div>
 
@@ -1493,7 +932,7 @@ export function LossModule() {
                         const end = new Date(`${e.target.value}T${endHour}:${endMin}:00`).toISOString();
                         syncDraftTimestamps(startIsoString, end);
                       }}
-                      className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none"
+                      className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none"
                     />
                     <input
                       type="text"
@@ -1504,7 +943,7 @@ export function LossModule() {
                         syncDraftTimestamps(startIsoString, end);
                       }}
                       placeholder="HH (0-23)"
-                      className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
+                      className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
                     />
                     <input
                       type="text"
@@ -1515,32 +954,30 @@ export function LossModule() {
                         syncDraftTimestamps(startIsoString, end);
                       }}
                       placeholder="MM (0-59)"
-                      className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
+                      className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
                     />
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-rose-800/40 bg-rose-950/20 py-2.5 px-4 text-center text-rose-300 text-xs font-medium">
-                    Sự cố đang tiếp diễn — hệ thống tự động tạm tính Loss quy đổi đến thời điểm hiện tại
+                  <div className="rounded-xl border border-red-200 bg-red-50/50 py-2.5 px-4 text-center text-red-700 text-xs font-bold">
+                    Sự cố đang tiếp diễn — Tự động tạm tính Loss quy đổi đến hiện tại
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* --------------------------------------------------------------------- */}
-          {/* BƯỚC 2: RULE ENGINE GỢI Ý THÔNG MINH (CBTO ADVISORY)                  */}
-          {/* --------------------------------------------------------------------- */}
+          {/* PART 2: GỢI Ý BỐI CẢNH MÁY (THAM KHẢO) */}
           {ruleSuggestions.length > 0 && (
-            <div className="rounded-xl border border-amber-800/60 bg-amber-950/20 p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-amber-800/40 pb-3">
+            <div className="rounded-3xl bg-amber-50/40 border border-amber-200/80 p-5 sm:p-6 space-y-4 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-amber-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-400" />
-                  <h3 className="text-sm font-bold text-amber-300 tracking-tight">
-                    02. Gợi ý từ Rule Engine CBTO (Chỉ mang tính chất tham khảo)
+                  <Sparkles className="h-4 w-4 text-amber-600" />
+                  <h3 className="text-sm font-black text-amber-900 tracking-tight">
+                    02. Gợi ý bối cảnh vận hành (Chỉ mang tính chất tham khảo)
                   </h3>
                 </div>
-                <span className="text-xs text-slate-400">
-                  Không tự áp dụng — Người dùng luôn chủ động xác nhận hoặc chỉnh sửa
+                <span className="text-xs text-amber-700">
+                  Người dùng luôn chủ động xác nhận hoặc chỉnh sửa theo thực tế
                 </span>
               </div>
 
@@ -1548,31 +985,31 @@ export function LossModule() {
                 {ruleSuggestions.map((sug) => (
                   <div
                     key={sug.ruleId}
-                    className="rounded-lg border border-slate-800 bg-slate-900/90 p-4 space-y-3 flex flex-col justify-between"
+                    className="rounded-2xl border border-amber-200 bg-white p-4 space-y-3 flex flex-col justify-between shadow-2xs"
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-white text-xs">{sug.title}</span>
-                        <span className="text-xs font-semibold text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/40">
+                        <span className="font-bold text-gray-900 text-xs">{sug.title}</span>
+                        <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200">
                           {getImpactLabel(sug.suggestedImpactType)}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-300 leading-relaxed">{sug.rationale}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">{sug.rationale}</p>
                       {sug.warningNote && (
-                        <p className="text-xs text-amber-300/90 bg-amber-950/30 p-2 rounded border border-amber-800/30">
+                        <p className="text-xs text-amber-800 bg-amber-50/70 p-2 rounded-xl border border-amber-200/60">
                           {sug.warningNote}
                         </p>
                       )}
                     </div>
 
-                    <div className="pt-3 flex items-center justify-between border-t border-slate-800">
-                      <span className="text-xs font-mono text-slate-400">
-                        Gợi ý: <strong>{sug.suggestedPercent !== null ? `${sug.suggestedPercent}%` : 'Chưa định %'}</strong>
+                    <div className="pt-3 flex items-center justify-between border-t border-gray-100">
+                      <span className="text-xs font-mono text-gray-500">
+                        Gợi ý mức: <strong>{sug.suggestedPercent !== null ? `${sug.suggestedPercent}%` : 'Chưa định %'}</strong>
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyRuleSuggestion(sug)}
-                        className="rounded-md bg-orange-600 hover:bg-orange-500 px-3.5 py-1.5 font-semibold text-xs text-white shadow-sm transition-colors cursor-pointer"
+                        className="rounded-xl bg-[#E31837] hover:bg-red-700 px-3.5 py-1.5 font-bold text-xs text-white shadow-xs transition-colors cursor-pointer"
                       >
                         Áp dụng gợi ý
                       </button>
@@ -1583,27 +1020,26 @@ export function LossModule() {
             </div>
           )}
 
-          {/* --------------------------------------------------------------------- */}
-          {/* BƯỚC 3: KHAI BÁO CÁC KHOẢNG ẢNH HƯỞNG VẬN HÀNH THỰC TẾ               */}
-          {/* --------------------------------------------------------------------- */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-5 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
+          {/* PART 3: KHAI BÁO ẢNH HƯỞNG VẬN HÀNH THỰC TẾ & MỨC ĐỘ % */}
+          <div className="rounded-3xl bg-white border border-gray-200/80 p-5 sm:p-7 space-y-5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3.5">
               <div>
-                <h3 className="text-base font-bold text-white tracking-tight">
+                <span className="text-xs font-bold text-[#E31837] uppercase tracking-wider block">Phần 3/4</span>
+                <h3 className="text-base font-black text-gray-900 tracking-tight mt-0.5">
                   03. Khai báo ảnh hưởng vận hành thực tế
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Công thức chuẩn: <strong>Loss quy đổi (phút) = Thời gian ảnh hưởng thực tế (phút) × Mức ảnh hưởng (%) / 100</strong>
+                <p className="text-xs text-gray-500 mt-1">
+                  Công thức: <strong>Loss quy đổi (phút) = Thời gian ảnh hưởng thực tế (phút) × Mức ảnh hưởng (%) / 100</strong>
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={handleAddDraftInterval}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:text-white transition-colors cursor-pointer self-start sm:self-auto"
+                className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 px-4 py-2 text-xs font-bold text-gray-800 transition-colors cursor-pointer self-start sm:self-auto shadow-2xs"
               >
-                <Plus className="h-3.5 w-3.5" />
-                <span>+ Thêm khoảng ảnh hưởng</span>
+                <Plus className="h-4 w-4 text-[#E31837]" />
+                <span>Thêm khoảng ảnh hưởng</span>
               </button>
             </div>
 
@@ -1625,16 +1061,16 @@ export function LossModule() {
                 return (
                   <div
                     key={draft.tempId}
-                    className="rounded-lg border border-slate-800 bg-slate-950/70 p-4 space-y-4"
+                    className="rounded-2xl border border-gray-200 bg-gray-50/40 p-4 sm:p-5 space-y-4"
                   >
-                    <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                    <div className="flex items-center justify-between border-b border-gray-200/80 pb-3">
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="font-semibold text-white">
-                          Khoảng thời gian #{idx + 1}
+                        <span className="font-extrabold text-gray-900">
+                          Khoảng thời gian ảnh hưởng #{idx + 1}
                         </span>
-                        <span aria-hidden="true">·</span>
-                        <span className="text-slate-400">
-                          Phạm vi: <strong className="text-slate-200">{getImpactScope(draft.impactType)}</strong>
+                        <span aria-hidden="true" className="text-gray-300">·</span>
+                        <span className="text-gray-500">
+                          Phạm vi: <strong className="text-gray-800">{getImpactScope(draft.impactType)}</strong>
                         </span>
                       </div>
 
@@ -1642,7 +1078,7 @@ export function LossModule() {
                         <button
                           type="button"
                           onClick={() => handleDeleteDraftInterval(draft.tempId)}
-                          className="text-xs text-slate-500 hover:text-rose-400 p-1 transition-colors cursor-pointer"
+                          className="text-xs text-gray-400 hover:text-red-600 p-1 transition-colors cursor-pointer font-medium"
                           title="Xóa khoảng này"
                         >
                           Xóa khoảng
@@ -1650,27 +1086,25 @@ export function LossModule() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {/* Loại ảnh hưởng */}
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-300">
-                          Loại ảnh hưởng <span className="text-rose-400">*</span>
-                        </label>
+                        <label className="block text-xs font-bold text-gray-700">Loại ảnh hưởng vận hành</label>
                         <select
                           value={draft.impactType}
                           onChange={(e) => {
-                            const val = e.target.value as ImpactType;
+                            const newType = e.target.value as ImpactType;
                             handleUpdateDraftInterval(draft.tempId, {
-                              impactType: val,
-                              impactPercent: val === 'NONE' ? 0 : val === 'COOLING_BUFFER_CONGESTION' ? null : 100,
-                              isInsufficientData: val === 'COOLING_BUFFER_CONGESTION',
+                              impactType: newType,
+                              impactPercent: newType === 'NONE' ? 0 : newType === 'STOP_COOK' || newType === 'STOP_PACKING' ? 100 : draft.impactPercent,
+                              isInsufficientData: newType === 'COOLING_BUFFER_CONGESTION' && draft.isInsufficientData,
                             });
                           }}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                          className="w-full rounded-xl border border-gray-200 bg-white py-2 px-3 text-xs font-bold text-gray-900 focus:border-[#E31837] focus:outline-none"
                         >
                           {IMPACT_TYPES.map((t) => (
                             <option key={t} value={t}>
-                              {getImpactLabel(t)} {t === 'NONE' ? '(Loại trừ, 0% Loss)' : ''}
+                              {getImpactLabel(t)}
                             </option>
                           ))}
                         </select>
@@ -1678,11 +1112,11 @@ export function LossModule() {
 
                       {/* Công đoạn chịu ảnh hưởng */}
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-300">Công đoạn chịu ảnh hưởng</label>
+                        <label className="block text-xs font-bold text-gray-700">Công đoạn chịu ảnh hưởng</label>
                         <select
                           value={draft.affectedStage}
                           onChange={(e) => handleUpdateDraftInterval(draft.tempId, { affectedStage: e.target.value })}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
+                          className="w-full rounded-xl border border-gray-200 bg-white py-2 px-3 text-xs font-bold text-gray-900 focus:border-[#E31837] focus:outline-none"
                         >
                           {ORIGIN_STAGES.map((s) => (
                             <option key={s} value={s}>
@@ -1692,561 +1126,650 @@ export function LossModule() {
                         </select>
                       </div>
 
-                      {/* Mức độ ảnh hưởng (%) */}
-                      <div className="col-span-1 sm:col-span-2 space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-300">
-                          Mức độ ảnh hưởng (%) {isNone && '— 0% (Loại trừ)'}
-                        </label>
-                        {isNone ? (
-                          <div className="rounded-lg border border-slate-800 bg-slate-900 py-2.5 px-3 text-slate-400 text-xs italic">
-                            Không ảnh hưởng vận hành: Mức ảnh hưởng 0%, Loss quy đổi bằng 0.
+                      {/* Mức ảnh hưởng % */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-bold text-gray-700">Mức ảnh hưởng (%)</label>
+                          {isCongestion && (
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={draft.isInsufficientData}
+                                onChange={(e) =>
+                                  handleUpdateDraftInterval(draft.tempId, {
+                                    isInsufficientData: e.target.checked,
+                                    impactPercent: e.target.checked ? null : 50,
+                                  })
+                                }
+                                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                              />
+                              <span className="text-[11px] font-bold text-purple-700">Chưa đủ dữ liệu %</span>
+                            </label>
+                          )}
+                        </div>
+
+                        {draft.isInsufficientData ? (
+                          <div className="rounded-xl bg-purple-50 p-2 text-center text-xs text-purple-700 font-bold border border-purple-200">
+                            Chưa đủ dữ liệu (Ghi nhận thời gian tồn tại)
+                          </div>
+                        ) : isNone ? (
+                          <div className="rounded-xl bg-gray-100 p-2 text-center text-xs text-gray-600 font-bold">
+                            0% (Không ảnh hưởng vận hành)
                           </div>
                         ) : (
-                          <div className="space-y-2.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {QUICK_PERCENTS.map((pct) => (
-                                <button
-                                  key={pct}
-                                  type="button"
-                                  onClick={() => handleUpdateDraftInterval(draft.tempId, { impactPercent: pct, isInsufficientData: false })}
-                                  className={`h-10 px-4 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                                    draft.impactPercent === pct && !draft.isInsufficientData
-                                      ? 'bg-orange-600 text-white shadow-sm'
-                                      : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
-                                  }`}
-                                >
-                                  {pct}%
-                                </button>
-                              ))}
-
-                              {/* Manual Input */}
-                              <div className="flex items-center gap-1.5 ml-auto">
-                                <span className="text-xs text-slate-400">Tùy chỉnh:</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  max={100}
-                                  value={draft.impactPercent ?? ''}
-                                  disabled={draft.isInsufficientData}
-                                  onChange={(e) => {
-                                    const val = e.target.value ? Number(e.target.value) : null;
-                                    handleUpdateDraftInterval(draft.tempId, { impactPercent: val, isInsufficientData: false });
-                                  }}
-                                  placeholder="1-100"
-                                  className="w-16 h-10 rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono text-center focus:border-orange-500 focus:outline-none text-sm"
-                                />
-                                <span className="text-slate-400 text-xs">%</span>
-                              </div>
-                            </div>
-
-                            {/* Insufficient data checkbox for cooling congestion */}
-                            {isCongestion && (
-                              <label className="flex items-center gap-2 cursor-pointer text-xs text-amber-300">
-                                <input
-                                  type="checkbox"
-                                  checked={draft.isInsufficientData}
-                                  onChange={(e) =>
-                                    handleUpdateDraftInterval(draft.tempId, {
-                                      isInsufficientData: e.target.checked,
-                                      impactPercent: e.target.checked ? null : 50,
-                                    })
-                                  }
-                                  className="rounded border-slate-700 text-amber-500 focus:ring-amber-400 h-4 w-4"
-                                />
-                                <span>Chưa xác định tỷ lệ % (Gắn cờ &quot;Chưa đủ dữ liệu&quot; — không mặc định 0% hoặc 100%)</span>
-                              </label>
-                            )}
+                          <div className="flex items-center gap-1.5">
+                            {QUICK_PERCENTS.map((p) => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => handleUpdateDraftInterval(draft.tempId, { impactPercent: p })}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                                  draft.impactPercent === p
+                                    ? 'bg-[#E31837] text-white border-[#E31837] shadow-2xs'
+                                    : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                {p}%
+                              </button>
+                            ))}
+                            <input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={draft.impactPercent || ''}
+                              onChange={(e) =>
+                                handleUpdateDraftInterval(draft.tempId, { impactPercent: Number(e.target.value) })
+                              }
+                              placeholder="1-100"
+                              className="w-16 rounded-lg border border-gray-200 bg-white p-1.5 text-center font-mono font-bold text-xs text-gray-900 focus:border-[#E31837] focus:outline-none"
+                            />
                           </div>
                         )}
                       </div>
+                    </div>
 
-                      {/* Ghi chú / Căn cứ xác nhận */}
-                      <div className="col-span-1 sm:col-span-2 lg:col-span-3 space-y-1.5">
-                        <label className="block text-xs font-semibold text-slate-300">Căn cứ / Ghi chú ảnh hưởng</label>
-                        <input
-                          type="text"
-                          value={draft.note}
-                          onChange={(e) => handleUpdateDraftInterval(draft.tempId, { note: e.target.value })}
-                          placeholder="Ví dụ: Nồi 1 dừng motor, nồi 2 chạy bình thường -> giảm tải 50%"
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white focus:border-orange-500 focus:outline-none transition-colors"
-                        />
+                    {/* Calculated live metric for this interval */}
+                    <div className="rounded-xl bg-white p-3 border border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500">Thời lượng ảnh hưởng:</span>
+                        <strong className="font-mono text-gray-900 font-bold">{metrics.durationMinutes} phút</strong>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-500">Mức %:</span>
+                        <strong className="font-mono text-gray-900 font-bold">
+                          {metrics.isInsufficientData ? 'Chưa đủ dữ liệu' : `${metrics.impactPercent}%`}
+                        </strong>
                       </div>
-
-                      {/* Live Computed Card */}
-                      <div className="col-span-1 bg-slate-900/90 p-3 rounded-lg border border-slate-800 flex flex-col justify-center">
-                        <span className="text-[11px] text-slate-400 font-medium">Loss quy đổi khoảng này</span>
-                        <div className="mt-1 flex items-baseline gap-1">
-                          {metrics.convertedLossMinutes !== null ? (
-                            <>
-                              <span className="text-2xl font-bold text-rose-400 font-mono tabular-nums">
-                                {metrics.convertedLossMinutes}
-                              </span>
-                              <span className="text-xs text-slate-400">phút ({metrics.durationMinutes}m thực tế)</span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-amber-300 font-semibold">Chưa đủ dữ liệu</span>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <span className="text-gray-500">Loss quy đổi:</span>
+                        <span className="font-mono text-rose-600 text-sm">
+                          {metrics.convertedLossMinutes !== null ? `${metrics.convertedLossMinutes} phút` : 'Chưa định %'}
+                        </span>
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
+          </div>
 
-            {/* Total Converted Loss Banner */}
-            <div className="rounded-lg border border-slate-800 bg-slate-900/90 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-sm font-bold text-white">
-                  Tổng hợp Loss quy đổi của sự kiện
+          {/* PART 4: XEM LẠI THÔNG TIN VÀ XÁC NHẬN LƯU */}
+          <div className="rounded-3xl bg-white border border-gray-200/80 p-5 sm:p-7 space-y-4 shadow-xs">
+            <div className="border-b border-gray-100 pb-3">
+              <span className="text-xs font-bold text-[#E31837] uppercase tracking-wider block">Phần 4/4</span>
+              <h3 className="text-base font-black text-gray-900 tracking-tight mt-0.5">
+                04. Xem lại thông tin trước khi lưu
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-2xl bg-gray-50 p-4 border border-gray-200/60">
+                <span className="text-xs text-gray-500 font-medium block">Thời gian sự cố gốc</span>
+                <span className="text-2xl font-black text-gray-900 font-mono tabular-nums mt-1 block">
+                  {calculatedDuration} phút
                 </span>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Cộng chính xác các khoảng thời gian trước khi hiển thị; không làm tròn từng khoảng lẻ
-                </p>
+                <span className="text-[11px] text-gray-400">Từ thời điểm bắt đầu - kết thúc</span>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <div className="text-3xl font-bold text-rose-400 font-mono tabular-nums">
-                    {draftMetricsSummary.totalConvertedLoss}
-                    <span className="text-base font-sans font-normal text-slate-400 ml-1">phút</span>
-                  </div>
-                  {draftMetricsSummary.hasInsufficientData && (
-                    <span className="text-xs text-amber-400 font-medium">
-                      + Có khoảng chưa đủ dữ liệu
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  className="rounded-lg bg-orange-600 hover:bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  Xác nhận & Lưu sự cố
-                </button>
+              <div className="rounded-2xl bg-gray-50 p-4 border border-gray-200/60">
+                <span className="text-xs text-gray-500 font-medium block">Số khoảng ảnh hưởng</span>
+                <span className="text-2xl font-black text-gray-900 font-mono tabular-nums mt-1 block">
+                  {draftImpacts.length} khoảng
+                </span>
+                <span className="text-[11px] text-gray-400">Khai báo độc lập từng công đoạn</span>
               </div>
+
+              <div className="rounded-2xl bg-red-50 p-4 border border-red-200/80">
+                <span className="text-xs text-red-700 font-bold block">Tổng Loss quy đổi tương đương</span>
+                <span className="text-2xl font-black text-[#E31837] font-mono tabular-nums mt-1 block">
+                  {draftMetricsSummary.totalConvertedLoss} phút
+                </span>
+                <span className="text-[11px] text-red-600 font-medium">
+                  {draftMetricsSummary.hasInsufficientData ? 'Có khoảng gắn cờ Chưa đủ dữ liệu' : 'Đã xác nhận đầy đủ'}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-3 flex flex-col sm:flex-row justify-end items-center gap-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-gray-200 bg-white font-bold text-xs text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#E31837] hover:bg-red-700 font-black text-xs text-white shadow-md shadow-red-200 transition-all cursor-pointer flex items-center justify-center gap-2 min-h-[48px]"
+              >
+                <Check className="h-4 w-4" />
+                <span>Xác nhận & Lưu sự cố vào hệ thống</span>
+              </button>
             </div>
           </div>
         </form>
       )}
 
-      {/* ========================================================================= */}
-      {/* VIEW 3: PHÂN BỔ 9 NHÓM LOSS & TỔNG HỢP THEO PHẠM VI                         */}
-      {/* ========================================================================= */}
-      {viewMode === 'analytics' && (
-        <div className="space-y-6">
-          {/* 3 Scope Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-sky-400">
-                <span>01. Phạm vi Cụm Nấu (Cooking Scope)</span>
-                <span className="text-slate-500 font-normal">Nồi nấu N01/N02</span>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Các sự cố làm dừng nồi nấu hoặc giảm năng lực nấu cụm bồn. Không suy diễn làm dừng đóng gói nếu ĐG vẫn chạy từ buffer.
-              </p>
-              <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
-                <span className="text-3xl font-bold text-white font-mono tabular-nums">
-                  {scopeLossMetrics['Nấu'].totalConvertedLossMinutes}
-                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút Loss</span>
-                </span>
-                <span className="text-xs text-slate-400 font-mono tabular-nums">
-                  sự cố: {scopeLossMetrics['Nấu'].totalDurationMinutes}m
-                </span>
-              </div>
+      {/* VIEW MODE 2: EVENT LIST */}
+      {viewMode === 'list' && (
+        <div className="space-y-5">
+          {/* 4 Scope Summary Metric Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div className="rounded-2xl bg-white border border-gray-200/80 p-4 shadow-2xs">
+              <span className="text-xs text-gray-500 font-medium block">Phạm vi Nấu</span>
+              <span className="text-3xl font-black text-rose-600 font-mono tabular-nums mt-1 block">
+                {currentViewScopeMetrics['Nấu'].totalConvertedLossMinutes}m
+              </span>
+              <span className="text-[11px] text-gray-400">Dừng hoặc giảm tải nấu</span>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-teal-400">
-                <span>02. Phạm vi Cấp Tương (Feed Scope)</span>
-                <span className="text-slate-500 font-normal">Buffer / Làm nguội</span>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Dừng cấp tương cho ĐG hoặc tương tích lũy tại bồn làm nguội. Ghi nhận thời gian tồn tại và rà soát tỷ lệ % thực tế.
-              </p>
-              <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
-                <span className="text-3xl font-bold text-white font-mono tabular-nums">
-                  {scopeLossMetrics['Cấp tương'].totalConvertedLossMinutes}
-                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút Loss</span>
-                </span>
-                {scopeLossMetrics['Cấp tương'].hasInsufficientData && (
-                  <span className="text-xs text-amber-400 font-medium">
-                    Có sự cố chờ xác nhận %
-                  </span>
-                )}
-              </div>
+            <div className="rounded-2xl bg-white border border-gray-200/80 p-4 shadow-2xs">
+              <span className="text-xs text-gray-500 font-medium block">Phạm vi Cấp Tương</span>
+              <span className="text-3xl font-black text-teal-700 font-mono tabular-nums mt-1 block">
+                {currentViewScopeMetrics['Cấp tương'].totalConvertedLossMinutes}m
+              </span>
+              <span className="text-[11px] text-gray-400">Dừng cấp tương cho ĐG</span>
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-amber-400">
-                <span>03. Phạm vi Đóng Gói (Packing Scope)</span>
-                <span className="text-slate-500 font-normal">Chiết / Dán / Thùng</span>
+            <div className="rounded-2xl bg-white border border-gray-200/80 p-4 shadow-2xs">
+              <span className="text-xs text-gray-500 font-medium block">Phạm vi Đóng Gói</span>
+              <span className="text-3xl font-black text-amber-600 font-mono tabular-nums mt-1 block">
+                {currentViewScopeMetrics['Đóng gói'].totalConvertedLossMinutes}m
+              </span>
+              <span className="text-[11px] text-gray-400">Dừng hoặc giảm tốc ĐG</span>
+            </div>
+
+            <div className="rounded-2xl bg-white border border-gray-200/80 p-4 shadow-2xs">
+              <span className="text-xs text-gray-500 font-medium block">Sự cố đang mở</span>
+              <span className="text-3xl font-black text-red-600 font-mono tabular-nums mt-1 block">
+                {ongoingLossLogs.length}
+              </span>
+              <span className="text-[11px] text-gray-400">Đang tiếp diễn tại máy</span>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="rounded-3xl bg-white border border-gray-200/80 p-5 space-y-4 shadow-xs">
+            {/* Row 1: Line Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-gray-500 mr-1 flex items-center gap-1">
+                  <Filter className="h-3.5 w-3.5" /> Line:
+                </span>
+                <button
+                  onClick={() => setFilterLineId('ALL')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                    filterLineId === 'ALL'
+                      ? 'bg-[#E31837] text-white shadow-xs'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Tất cả ({lossLogs.length})
+                </button>
+                {lines.map((l) => {
+                  const isSel = filterLineId === l.id;
+                  const count = lossLogs.filter((x) => x.lineId === l.id).length;
+                  return (
+                    <button
+                      key={l.id}
+                      onClick={() => setFilterLineId(l.id)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
+                        isSel
+                          ? 'bg-[#E31837] text-white shadow-xs'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span>{l.code}</span>
+                      <span className="text-[10px] opacity-75">({count})</span>
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Dừng máy chiết rót, vặn nắp, dán nhãn hoặc giảm tốc đóng gói. Phạm vi độc lập, không cộng dồn vào tổng toàn xưởng.
-              </p>
-              <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
-                <span className="text-3xl font-bold text-white font-mono tabular-nums">
-                  {scopeLossMetrics['Đóng gói'].totalConvertedLossMinutes}
-                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút Loss</span>
-                </span>
-                <span className="text-xs text-slate-400 font-mono tabular-nums">
-                  sự cố: {scopeLossMetrics['Đóng gói'].totalDurationMinutes}m
-                </span>
+
+              <button
+                onClick={() => setViewMode('entry')}
+                className="flex items-center gap-1.5 rounded-xl bg-[#E31837] hover:bg-red-700 px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer self-start sm:self-auto min-h-[40px]"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Ghi nhận sự cố mới</span>
+              </button>
+            </div>
+
+            {/* Row 2: Shift, Date & Search */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-gray-500 mr-1">Ca:</span>
+                <button
+                  onClick={() => setFilterShiftId('ALL')}
+                  className={`px-2.5 py-1 text-xs rounded-lg font-bold transition-all ${
+                    filterShiftId === 'ALL'
+                      ? 'bg-gray-800 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Tất cả
+                </button>
+                {SHIFTS.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setFilterShiftId(s.id)}
+                    className={`px-2.5 py-1 text-xs rounded-lg font-bold transition-all ${
+                      filterShiftId === s.id
+                        ? 'bg-[#E31837] text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl px-2.5 py-1.5 border border-gray-200 text-xs">
+                  <Calendar className="h-3.5 w-3.5 text-[#E31837]" />
+                  <input
+                    type="date"
+                    disabled={isFilterAllDates}
+                    value={filterDate}
+                    onChange={(e) => {
+                      setFilterDate(e.target.value);
+                      setIsFilterAllDates(false);
+                    }}
+                    className="bg-transparent text-gray-800 font-mono text-xs font-bold focus:outline-none cursor-pointer disabled:opacity-40"
+                  />
+                  <button
+                    onClick={() => {
+                      setFilterDate(todayStr);
+                      setIsFilterAllDates(false);
+                    }}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition-colors ${
+                      !isFilterAllDates && filterDate === todayStr
+                        ? 'bg-gray-800 text-white'
+                        : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    Hôm nay
+                  </button>
+                  <button
+                    onClick={() => setIsFilterAllDates(!isFilterAllDates)}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition-colors ${
+                      isFilterAllDates ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                </div>
+
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Tìm sự cố, nguyên nhân, thiết bị..."
+                    className="rounded-xl border border-gray-200 bg-white pl-8 pr-7 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:border-[#E31837] focus:outline-none w-56"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-700 text-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Breakdown by 9 Loss Groups Table */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-white">
-                Phân bổ Loss theo 9 Nhóm Nguyên Nhân MVP CBTO
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Tổng hợp thời lượng sự cố thực tế và các tác động vận hành liên đới đã ghi nhận
-              </p>
-            </div>
+          {/* Event Cards List */}
+          <div className="space-y-3.5">
+            {filteredLossLogs.length === 0 ? (
+              <div className="rounded-3xl bg-white border border-gray-200 p-12 text-center text-gray-400 space-y-3">
+                <ClockAlert className="h-10 w-10 mx-auto text-gray-300" />
+                <p className="text-sm font-bold text-gray-700">
+                  Không tìm thấy sự cố dừng máy nào phù hợp với bộ lọc hiện tại.
+                </p>
+                <button
+                  onClick={() => setViewMode('entry')}
+                  className="rounded-xl bg-[#E31837] hover:bg-red-700 px-5 py-2 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer"
+                >
+                  + Ghi nhận sự cố mới
+                </button>
+              </div>
+            ) : (
+              filteredLossLogs.map((log) => {
+                const lineObj = lines.find((l) => l.id === log.lineId);
+                const shiftObj = SHIFTS.find((s) => s.id === log.shiftId);
+                const isLogOngoing = log.endedAt === null;
+                const impacts = log.impacts || [];
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 font-semibold">
-                    <th className="py-2.5 px-3">Nhóm nguyên nhân</th>
-                    <th className="py-2.5 px-3 text-right">Số sự kiện</th>
-                    <th className="py-2.5 px-3 text-right">Tổng thời gian sự cố</th>
-                    <th className="py-2.5 px-3 text-right">Loss quy đổi (Nấu)</th>
-                    <th className="py-2.5 px-3 text-right">Loss quy đổi (Cấp tương)</th>
-                    <th className="py-2.5 px-3 text-right">Loss quy đổi (Đóng gói)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {OFFICIAL_LOSS_GROUPS.map((grp) => {
-                    const logs = filteredLossLogs.filter((l) => l.lossGroup === grp);
-                    const totalDur = logs.reduce((acc, l) => acc + l.durationMinutes, 0);
-                    const cookLoss = logs
-                      .flatMap((l) => l.impacts || [])
-                      .filter((imp) => imp.impactScope === 'Nấu' && imp.convertedLossMinutes !== null)
-                      .reduce((acc, imp) => acc + (imp.convertedLossMinutes || 0), 0);
-                    const feedLoss = logs
-                      .flatMap((l) => l.impacts || [])
-                      .filter((imp) => imp.impactScope === 'Cấp tương' && imp.convertedLossMinutes !== null)
-                      .reduce((acc, imp) => acc + (imp.convertedLossMinutes || 0), 0);
-                    const packLoss = logs
-                      .flatMap((l) => l.impacts || [])
-                      .filter((imp) => imp.impactScope === 'Đóng gói' && imp.convertedLossMinutes !== null)
-                      .reduce((acc, imp) => acc + (imp.convertedLossMinutes || 0), 0);
+                return (
+                  <div
+                    key={log.id}
+                    className="rounded-3xl bg-white border border-gray-200/80 p-5 hover:border-gray-300 transition-all shadow-xs space-y-3.5"
+                  >
+                    {/* Top Row: Context & Duration */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                        <span className="font-bold text-gray-900">
+                          {lineObj ? `${lineObj.code} - ${lineObj.name.split(' (')[0]}` : log.lineId}
+                        </span>
+                        <span aria-hidden="true" className="text-gray-300">·</span>
+                        <span>{shiftObj?.name || log.shiftId}</span>
+                        <span aria-hidden="true" className="text-gray-300">·</span>
+                        <span className="font-mono text-gray-700">{formatDateVN(log.productionDate)}</span>
+                        <span aria-hidden="true" className="text-gray-300">·</span>
+                        <span className="font-mono text-gray-700 font-medium">
+                          {formatTime(log.startedAt)} - {log.endedAt ? formatTime(log.endedAt) : 'Đang tiếp diễn'}
+                        </span>
+                      </div>
 
-                    return (
-                      <tr key={grp} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 px-3 font-sans font-medium text-slate-200">{grp}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">{logs.length}</td>
-                        <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">{totalDur}m</td>
-                        <td className="py-2.5 px-3 text-right text-sky-400 font-semibold tabular-nums">
-                          {cookLoss > 0 ? `${cookLoss}m` : '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-teal-400 font-semibold tabular-nums">
-                          {feedLoss > 0 ? `${feedLoss}m` : '-'}
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-amber-400 font-semibold tabular-nums">
-                          {packLoss > 0 ? `${packLoss}m` : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <span className="text-xs font-mono font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
+                          {log.durationMinutes} phút sự cố
+                        </span>
+                        {isLogOngoing ? (
+                          <button
+                            onClick={() => handleOpenEndModal(log.id)}
+                            className="text-xs font-bold px-3 py-1 rounded-xl bg-red-600 hover:bg-red-700 text-white cursor-pointer transition-colors shadow-2xs"
+                          >
+                            Đang dừng · Đóng sự cố
+                          </button>
+                        ) : (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gray-100 text-gray-600">
+                            Đã kết thúc
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Middle: Cause & Description */}
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="rounded-lg bg-red-50 text-[#E31837] border border-red-200 px-2.5 py-0.5 text-xs font-bold">
+                            {log.lossGroup}
+                          </span>
+                          <h4 className="text-sm font-bold text-gray-900">
+                            {log.downtimeReason || 'Sự cố dừng máy'}
+                          </h4>
+                          <span className="text-xs text-gray-400">({log.equipmentId})</span>
+                        </div>
+                        {log.description && (
+                          <p className="text-xs text-gray-600 leading-relaxed">{log.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 text-[11px] text-gray-400 pt-0.5">
+                          <span>Nguồn: <strong>{log.source || 'CBTO'}</strong></span>
+                          <span>·</span>
+                          <span>Công đoạn gốc: <strong>{log.originStage || 'Nấu'}</strong></span>
+                          <span>·</span>
+                          <span>Người ghi nhận: <strong>{log.reportedByName}</strong></span>
+                        </div>
+                      </div>
+
+                      {/* Impacts Mini List on Right */}
+                      <div className="md:w-80 bg-gray-50/80 rounded-2xl p-3 border border-gray-200/60 space-y-2 shrink-0">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 border-b border-gray-200/50 pb-1.5">
+                          <span>Ảnh hưởng vận hành ({impacts.length}):</span>
+                          <span className="text-[#E31837]">Loss quy đổi</span>
+                        </div>
+                        <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                          {impacts.length === 0 ? (
+                            <span className="text-[11px] text-gray-400 italic">Chưa khai báo ảnh hưởng</span>
+                          ) : (
+                            impacts.map((imp, i) => (
+                              <div
+                                key={imp.impactId || i}
+                                className="flex items-center justify-between text-xs bg-white p-2 rounded-xl border border-gray-200/70"
+                              >
+                                <div className="truncate mr-2">
+                                  <span className="font-bold text-gray-800 text-[11px] block truncate">
+                                    {getImpactLabel(imp.impactType)}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400">
+                                    {imp.impactPercent !== null ? `${imp.impactPercent}%` : 'Chưa định %'} · {imp.affectedStage}
+                                  </span>
+                                </div>
+                                <span className="font-mono font-bold text-xs text-rose-600 shrink-0">
+                                  {imp.convertedLossMinutes !== null ? `${imp.convertedLossMinutes}m` : '--'}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom: Action bar */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                      <button
+                        onClick={() => setDetailModalLog(log)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-gray-500" />
+                        <span>Xem chi tiết & Xác nhận</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLog(log.id)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-400 hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer"
+                        title="Xóa sự cố này"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: XEM CHI TIẾT SỰ KIỆN & RÀ SOÁT ẢNH HƯỞNG                           */}
-      {/* ========================================================================= */}
+      {/* VIEW MODE 3: ANALYTICS TABLE */}
+      {viewMode === 'analytics' && (
+        <div className="rounded-3xl bg-white border border-gray-200/80 p-5 sm:p-7 space-y-4 shadow-xs">
+          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div>
+              <h3 className="text-base font-black text-gray-900 tracking-tight">
+                Ma Trận Phân Bổ 9 Nhóm Nguyên Nhân Theo 3 Phạm Vi Vận Hành
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Độc lập 3 phạm vi: Nấu · Cấp Tương · Đóng Gói (Anti-Duplication Principle)
+              </p>
+            </div>
+            <button
+              onClick={() => setViewMode('list')}
+              className="text-xs font-bold text-[#E31837] hover:underline cursor-pointer"
+            >
+              ← Quay lại danh sách
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
+                  <th className="p-3">Nhóm nguyên nhân (9 nhóm MVP)</th>
+                  <th className="p-3 text-right">Số sự cố</th>
+                  <th className="p-3 text-right">Thời gian sự cố (phút)</th>
+                  <th className="p-3 text-right text-rose-600">Loss Nấu (phút)</th>
+                  <th className="p-3 text-right text-teal-700">Loss Cấp Tương (phút)</th>
+                  <th className="p-3 text-right text-amber-600">Loss Đóng Gói (phút)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {OFFICIAL_LOSS_GROUPS.map((grp) => {
+                  const grpLogs = filteredLossLogs.filter((l) => l.lossGroup === grp);
+                  const grpDuration = grpLogs.reduce((acc, cur) => acc + (cur.durationMinutes || 0), 0);
+                  const grpImpacts = grpLogs.flatMap((l) => l.impacts || []);
+
+                  let cookLoss = 0;
+                  let feedLoss = 0;
+                  let packLoss = 0;
+
+                  grpImpacts.forEach((imp) => {
+                    const m = calculateImpactMetrics(imp, nowMs);
+                    const mins = m.convertedLossMinutes || 0;
+                    if (imp.impactScope === 'Nấu') cookLoss += mins;
+                    else if (imp.impactScope === 'Cấp tương') feedLoss += mins;
+                    else if (imp.impactScope === 'Đóng gói') packLoss += mins;
+                  });
+
+                  return (
+                    <tr key={grp} className="hover:bg-gray-50/60 transition-colors">
+                      <td className="p-3 font-bold text-gray-900">{grp}</td>
+                      <td className="p-3 text-right font-mono text-gray-600">{grpLogs.length}</td>
+                      <td className="p-3 text-right font-mono font-bold text-gray-900">{grpDuration}m</td>
+                      <td className="p-3 text-right font-mono font-bold text-rose-600">{cookLoss}m</td>
+                      <td className="p-3 text-right font-mono font-bold text-teal-700">{feedLoss}m</td>
+                      <td className="p-3 text-right font-mono font-bold text-amber-600">{packLoss}m</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* DETAIL MODAL */}
       {detailModalLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 p-6 space-y-5 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
-              <div>
-                <h3 className="text-base font-bold text-white tracking-tight">Chi tiết sự cố & rà soát ảnh hưởng</h3>
-                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
-                  <span className="font-semibold text-slate-200">
-                    {lines.find((l) => l.id === detailModalLog.lineId)?.code || detailModalLog.lineId}
-                  </span>
-                  <span aria-hidden="true">·</span>
-                  <span>{detailModalLog.productionDate}</span>
-                  <span aria-hidden="true">·</span>
-                  <span className="font-mono text-[11px] text-slate-500">ID: {detailModalLog.id}</span>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-2xl rounded-3xl border border-gray-200 bg-white shadow-2xl p-6 space-y-5 text-xs max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <ClockAlert className="h-5 w-5 text-[#E31837]" />
+                <h3 className="font-black text-gray-900 text-base">
+                  Chi Tiết Sự Cố: {detailModalLog.downtimeReason || detailModalLog.lossGroup}
+                </h3>
               </div>
               <button
-                onClick={() => {
-                  setDetailModalLog(null);
-                  setQuickConfirmImpactId(null);
-                }}
-                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                onClick={() => setDetailModalLog(null)}
+                className="text-gray-400 hover:text-gray-700 p-1 cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Event Info Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950/60 p-4 rounded-lg border border-slate-800">
-              <div className="space-y-0.5">
-                <span className="text-[11px] text-slate-400 uppercase font-medium">Nguồn phát sinh</span>
-                <p className="font-semibold text-slate-200">{detailModalLog.source || 'CBTO'}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-200/70">
+              <div>
+                <span className="text-gray-400 block text-[11px]">Dây chuyền</span>
+                <span className="font-bold text-gray-800">{detailModalLog.lineId}</span>
               </div>
-
-              <div className="space-y-0.5">
-                <span className="text-[11px] text-slate-400 uppercase font-medium">Công đoạn gốc</span>
-                <p className="font-semibold text-slate-200">{detailModalLog.originStage || 'Nấu'}</p>
+              <div>
+                <span className="text-gray-400 block text-[11px]">Nhóm nguyên nhân</span>
+                <span className="font-bold text-[#E31837]">{detailModalLog.lossGroup}</span>
               </div>
-
-              <div className="space-y-0.5">
-                <span className="text-[11px] text-slate-400 uppercase font-medium">Nhóm nguyên nhân</span>
-                <p className="font-semibold text-slate-200">{detailModalLog.lossGroup}</p>
+              <div>
+                <span className="text-gray-400 block text-[11px]">Thời gian sự cố</span>
+                <span className="font-bold text-gray-800 font-mono">{detailModalLog.durationMinutes} phút</span>
               </div>
-
-              <div className="space-y-0.5">
-                <span className="text-[11px] text-slate-400 uppercase font-medium">Ca làm việc</span>
-                <p className="font-semibold text-slate-200">
-                  {SHIFTS.find((s) => s.id === detailModalLog.shiftId)?.name || detailModalLog.shiftId}
-                </p>
+              <div>
+                <span className="text-gray-400 block text-[11px]">Trạng thái</span>
+                <span className="font-bold text-gray-800">
+                  {detailModalLog.endedAt ? 'Đã kết thúc' : 'Đang tiếp diễn'}
+                </span>
               </div>
-
-              <div className="col-span-2 space-y-0.5 pt-2 border-t border-slate-800/80">
-                <span className="text-[11px] text-slate-400 uppercase font-medium">Nguyên nhân chi tiết</span>
-                <p className="font-bold text-white text-sm">
-                  {detailModalLog.downtimeReason || detailModalLog.lossGroup}
-                </p>
-              </div>
-
-              <div className="col-span-2 space-y-0.5 pt-2 border-t border-slate-800/80">
-                <span className="text-[11px] text-slate-400 uppercase font-medium">Thời gian sự cố</span>
-                <p className="font-mono font-semibold text-slate-200">
-                  {formatTime(detailModalLog.startedAt)} - {detailModalLog.endedAt ? formatTime(detailModalLog.endedAt) : 'Đang tiếp diễn'} ({detailModalLog.durationMinutes} phút)
-                </p>
-              </div>
-
-              {(detailModalLog.description || detailModalLog.note) && (
-                <div className="col-span-2 sm:col-span-4 space-y-0.5 pt-2 border-t border-slate-800/80">
-                  <span className="text-[11px] text-slate-400 uppercase font-medium">Mô tả hiện trường</span>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    {detailModalLog.description || detailModalLog.note}
-                  </p>
-                </div>
-              )}
             </div>
 
-            {/* Child Impacts Section */}
+            {/* Impacts Section */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
-                <Activity className="h-4 w-4 text-orange-400" />
-                <span>Các khoảng ảnh hưởng vận hành ({detailModalLog.impacts?.length || 0})</span>
-              </h4>
-
-              <div className="space-y-2.5">
-                {(detailModalLog.impacts || []).map((imp) => {
-                  const badge = getImpactStatusBadge(imp.confirmationStatus);
-                  const isPendingReview =
-                    imp.confirmationStatus === 'INSUFFICIENT_DATA' ||
-                    imp.confirmationStatus === 'UNREVIEWED' ||
-                    detailModalLog.isLegacyUnreviewed;
-
+              <h4 className="font-bold text-gray-900 text-sm">Danh Sách Ảnh Hưởng Vận Hành Đã Khai Báo</h4>
+              <div className="space-y-2">
+                {(detailModalLog.impacts || []).map((imp, idx) => {
+                  const m = calculateImpactMetrics(imp, nowMs);
                   return (
                     <div
-                      key={imp.impactId}
-                      className="rounded-lg border border-slate-800 bg-slate-950/70 p-3.5 space-y-2.5"
+                      key={imp.impactId || idx}
+                      className="p-3.5 rounded-2xl border border-gray-200 bg-white space-y-2 shadow-2xs"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-white text-xs">{getImpactLabel(imp.impactType)}</span>
-                          <span className={`text-[11px] px-2 py-0.5 rounded border font-medium ${badge.badgeClass}`}>
-                            {badge.label}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {imp.convertedLossMinutes !== null ? (
-                            <span className="font-mono font-bold tabular-nums text-rose-400 text-sm bg-rose-950/40 px-2 py-0.5 rounded border border-rose-800/40">
-                              {imp.convertedLossMinutes}m Loss quy đổi
-                            </span>
-                          ) : (
-                            <span className="text-amber-300 font-medium text-xs bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
-                              Chưa đủ dữ liệu
-                            </span>
-                          )}
-
-                          {isPendingReview && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setQuickConfirmImpactId(imp.impactId);
-                                setQuickConfirmPercent(imp.impactPercent || 50);
-                              }}
-                              className="rounded bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-semibold cursor-pointer transition-colors"
-                            >
-                              Xác nhận %
-                            </button>
-                          )}
-                        </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-gray-900">{getImpactLabel(imp.impactType)}</span>
+                        <span className="font-mono font-bold text-rose-600">
+                          {m.convertedLossMinutes !== null ? `${m.convertedLossMinutes}m quy đổi` : 'Chưa định %'}
+                        </span>
                       </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-400 bg-slate-900/60 p-2.5 rounded">
-                        <div>
-                          <span>Phạm vi:</span> <strong className="text-slate-200 ml-1">{imp.impactScope}</strong>
-                        </div>
-                        <div>
-                          <span>Công đoạn:</span> <strong className="text-slate-200 ml-1">{imp.affectedStage}</strong>
-                        </div>
-                        <div>
-                          <span>Mức độ:</span> <strong className="text-amber-300 ml-1">{imp.impactPercent !== null ? `${imp.impactPercent}%` : 'Chưa định %'}</strong>
-                        </div>
-                        <div>
-                          <span>Thời gian:</span> <strong className="text-slate-200 ml-1">{formatTime(imp.impactStartedAt)} - {imp.impactEndedAt ? formatTime(imp.impactEndedAt) : 'Đang tiếp diễn'}</strong>
-                        </div>
+                      <div className="flex items-center gap-3 text-gray-500 text-[11px]">
+                        <span>Phạm vi: <strong>{imp.impactScope}</strong></span>
+                        <span>·</span>
+                        <span>Mức: <strong>{imp.impactPercent !== null ? `${imp.impactPercent}%` : 'Chưa đủ dữ liệu'}</strong></span>
+                        <span>·</span>
+                        <span>Trạng thái: <strong className="text-gray-700">{imp.confirmationStatus}</strong></span>
                       </div>
-
-                      {imp.note && (
-                        <p className="text-xs text-slate-400 italic">
-                          Căn cứ xác nhận: &quot;{imp.note}&quot;
-                        </p>
-                      )}
-
-                      {/* Quick Confirm Box */}
-                      {quickConfirmImpactId === imp.impactId && (
-                        <div className="rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-3 space-y-2.5 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-emerald-300">Xác nhận mức độ ảnh hưởng thực tế:</span>
-                            <button
-                              type="button"
-                              onClick={() => setQuickConfirmImpactId(null)}
-                              className="text-slate-400 hover:text-white text-xs p-1"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center gap-1.5">
-                              {QUICK_PERCENTS.map((p) => (
-                                <button
-                                  key={p}
-                                  type="button"
-                                  onClick={() => setQuickConfirmPercent(p)}
-                                  className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer ${
-                                    quickConfirmPercent === p
-                                      ? 'bg-emerald-500 text-slate-950 font-bold'
-                                      : 'bg-slate-800 text-slate-300 hover:text-white'
-                                  }`}
-                                >
-                                  {p}%
-                                </button>
-                              ))}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={quickConfirmPercent}
-                                onChange={(e) => setQuickConfirmPercent(Number(e.target.value))}
-                                className="w-16 rounded border border-slate-700 bg-slate-800 p-1.5 text-center text-white font-mono text-xs"
-                              />
-                              <span className="text-slate-400">%</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleQuickConfirmImpact(detailModalLog.id, imp.impactId)}
-                              className="ml-auto rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-1.5 text-xs cursor-pointer transition-colors"
-                            >
-                              Lưu xác nhận
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      {imp.note && <p className="text-gray-600 text-[11px] italic">{imp.note}</p>}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div className="border-t border-slate-800 pt-3.5 flex items-center justify-between">
+            <div className="border-t border-gray-100 pt-3 flex justify-end">
               <button
                 type="button"
-                onClick={() => handleDeleteLog(detailModalLog.id, detailModalLog.downtimeReason)}
-                className="flex items-center gap-1.5 rounded-lg border border-rose-800/50 bg-rose-950/20 px-3.5 py-2 text-xs font-medium text-rose-300 hover:bg-rose-900/40 transition-colors cursor-pointer"
+                onClick={() => setDetailModalLog(null)}
+                className="px-5 py-2 rounded-xl bg-gray-100 font-bold text-gray-700 hover:bg-gray-200 cursor-pointer"
               >
-                <Trash2 className="h-4 w-4" />
-                <span>Xóa sự cố</span>
+                Đóng
               </button>
-
-              <div className="flex items-center gap-2.5">
-                {detailModalLog.endedAt === null && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEndModal(detailModalLog.id)}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white transition-colors cursor-pointer"
-                  >
-                    <Square className="h-4 w-4 fill-white" />
-                    <span>Đóng sự cố</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDetailModalLog(null);
-                    setQuickConfirmImpactId(null);
-                  }}
-                  className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
-                >
-                  Đóng
-                </button>
-              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: XÁC NHẬN KẾT THÚC SỰ CỐ (END LOSS MODAL)                           */}
-      {/* ========================================================================= */}
+      {/* END LOSS MODAL */}
       {endingLogId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 shadow-2xl p-6 space-y-4 text-xs">
-            <div>
-              <h3 className="font-bold text-white text-base tracking-tight">Xác nhận kết thúc sự cố</h3>
-              <p className="text-slate-400 mt-1 leading-relaxed">
-                Nhập thời điểm máy hoạt động trở lại bình thường. Hệ thống sẽ tự động chốt thời lượng sự cố và tính toán Loss quy đổi theo tỷ lệ ảnh hưởng:
-              </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white shadow-2xl p-6 space-y-4 text-xs">
+            <div className="flex items-center gap-2 text-rose-600 font-black text-base border-b border-gray-100 pb-3">
+              <Clock className="h-5 w-5" />
+              <span>Chốt Kết Thúc Sự Cố Dừng Máy</span>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">Thời gian kết thúc sự cố</label>
-              <input
-                type="datetime-local"
-                value={endDateTimeInput}
-                onChange={(e) => setEndDateTimeInput(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none"
-              />
-            </div>
+            <p className="text-gray-600">
+              Nhập thời điểm máy bắt đầu chạy lại hoặc hoàn tất xử lý sự cố:
+            </p>
 
-            <div className="border-t border-slate-800 pt-3.5 flex justify-end gap-2.5">
+            <input
+              type="datetime-local"
+              value={endDateTimeInput}
+              onChange={(e) => setEndDateTimeInput(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs font-mono font-bold text-gray-900 focus:border-[#E31837] focus:outline-none"
+            />
+
+            <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setEndingLogId(null)}
-                className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50 cursor-pointer"
               >
                 Hủy
               </button>
               <button
                 type="button"
-                onClick={handleConfirmEndLoss}
-                className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
+                onClick={handleConfirmEndLog}
+                className="px-5 py-2 rounded-xl bg-[#E31837] hover:bg-red-700 font-bold text-white shadow-xs cursor-pointer"
               >
-                Chốt kết thúc & Cập nhật Loss
+                Xác nhận kết thúc
               </button>
             </div>
           </div>

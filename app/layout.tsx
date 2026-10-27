@@ -22,7 +22,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#0f172a',
+  themeColor: '#E31837',
 };
 
 export default function RootLayout({
@@ -31,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className="h-full bg-slate-950 text-slate-100 antialiased">
-      <body suppressHydrationWarning className="h-full overflow-x-hidden font-sans">
+    <html lang="vi" className="h-full bg-[#F5F6F8] text-[#202124] antialiased">
+      <body suppressHydrationWarning className="h-full overflow-x-hidden font-sans bg-[#F5F6F8] text-[#202124]">
         {children}
       </body>
     </html>
