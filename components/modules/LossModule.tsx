@@ -693,69 +693,69 @@ export function LossModule() {
   }, [lossLogs, selectedLineId]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* ========================================================================= */}
       {/* TOP HEADER: TITLE & 3 VIEW MODES                                           */}
       {/* ========================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-3 sm:p-4 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-orange-950/60 shrink-0">
-            <ClockAlert className="h-5 w-5 sm:h-6 sm:w-6" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-orange-600 text-white shrink-0 shadow-sm">
+            <ClockAlert className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
-                QUẢN LÝ DỪNG MÁY & LOSS CBTO
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-lg font-bold text-white tracking-tight">
+                Quản Lý Dừng Máy & Loss CBTO
               </h1>
-              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
-                Mô Hình Ảnh Hưởng Vận Hành
+              <span className="text-xs font-medium text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
+                Mô hình Ảnh hưởng Vận hành
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Tách biệt: Nguồn · Nguyên nhân · Công đoạn · Ảnh hưởng vận hành · Mức độ % · Loss quy đổi
+              Tách biệt độc lập: Nguồn · Nguyên nhân · Công đoạn · Ảnh hưởng vận hành · Mức % · Loss quy đổi tương đương
             </p>
           </div>
         </div>
 
-        {/* 3 Main View Tabs */}
-        <div className="flex items-center gap-1 rounded-xl bg-slate-800/90 p-1 border border-slate-700/80 self-start sm:self-center">
+        {/* 3 Main View Tabs - Segmented Control */}
+        <div className="flex items-center gap-1 rounded-lg bg-slate-800/90 p-1 border border-slate-700/70 self-start md:self-center">
           <button
             onClick={() => setViewMode('list')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
               viewMode === 'list'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-950/40'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                ? 'bg-orange-600 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
             }`}
           >
             <ListFilter className="h-3.5 w-3.5" />
-            <span>Nhật ký Loss theo Line</span>
-            <span className="ml-1 rounded-full bg-slate-900/40 px-1.5 py-0.2 text-[10px] font-mono">
+            <span>Nhật ký sự cố & Loss</span>
+            <span className="ml-0.5 rounded bg-black/20 px-1.5 py-0.5 text-[11px] font-mono tabular-nums">
               {filteredLossLogs.length}
             </span>
           </button>
 
           <button
             onClick={() => setViewMode('entry')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
               viewMode === 'entry'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-950/40'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                ? 'bg-orange-600 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
             }`}
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Nhập Down Time Mới</span>
+            <span>Ghi nhận sự cố mới</span>
           </button>
 
           <button
             onClick={() => setViewMode('analytics')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
               viewMode === 'analytics'
-                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-950/40'
-                : 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                ? 'bg-orange-600 text-white shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
             }`}
           >
             <BarChart3 className="h-3.5 w-3.5" />
-            <span>Phân bổ 9 Nhóm & Phạm vi</span>
+            <span>Phân bổ 9 nhóm Loss</span>
           </button>
         </div>
       </div>
@@ -764,67 +764,151 @@ export function LossModule() {
       {/* VIEW 1: NHẬT KÝ LOSS CHI TIẾT THEO LINE                                     */}
       {/* ========================================================================= */}
       {viewMode === 'list' && (
-        <div className="space-y-4">
-          {/* Quick Filter Bar */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-3 sm:p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              {/* Line Selector Pills */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs font-bold text-slate-400 mr-1 flex items-center gap-1">
-                  <Filter className="h-3 w-3" />
-                  Line:
+        <div className="space-y-5">
+          {/* 4 Scope-separated Loss Metrics (Anti-Duplication Principle) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* Scope 1: Nấu */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-sky-400 font-semibold">
+                <span>Phạm vi Cụm Nấu</span>
+                <span className="text-[11px] text-slate-500 font-normal">Công đoạn Nấu</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-white font-mono tabular-nums">
+                  {scopeLossMetrics['Nấu'].totalConvertedLossMinutes}
+                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút</span>
+                </span>
+                <span className="text-xs text-slate-400 font-mono tabular-nums">
+                  sự cố: {scopeLossMetrics['Nấu'].totalDurationMinutes}m
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 line-clamp-1">
+                Tổn thất quy đổi thực tế cụm nồi nấu
+              </p>
+            </div>
+
+            {/* Scope 2: Cấp tương */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-teal-400 font-semibold">
+                <span>Phạm vi Cấp Tương</span>
+                <span className="text-[11px] text-slate-500 font-normal">Buffer / Làm nguội</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-white font-mono tabular-nums">
+                  {scopeLossMetrics['Cấp tương'].totalConvertedLossMinutes}
+                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút</span>
+                </span>
+                {scopeLossMetrics['Cấp tương'].hasInsufficientData && (
+                  <span className="text-[11px] font-medium text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/40">
+                    Chưa đủ dữ liệu ứ bồn
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 line-clamp-1">
+                Dừng cấp hoặc ứ bồn làm nguội
+              </p>
+            </div>
+
+            {/* Scope 3: Đóng gói */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-amber-400 font-semibold">
+                <span>Phạm vi Đóng Gói</span>
+                <span className="text-[11px] text-slate-500 font-normal">Chiết rót / Đóng thùng</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-white font-mono tabular-nums">
+                  {scopeLossMetrics['Đóng gói'].totalConvertedLossMinutes}
+                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút</span>
+                </span>
+                <span className="text-xs text-slate-400 font-mono tabular-nums">
+                  sự cố: {scopeLossMetrics['Đóng gói'].totalDurationMinutes}m
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 line-clamp-1">
+                Không cộng mù quáng vào tổng toàn xưởng
+              </p>
+            </div>
+
+            {/* Scope 4: Ongoing tracking */}
+            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400 font-semibold">
+                <span>Sự Cố Đang Tiếp Diễn</span>
+                <span className="text-[11px] text-slate-500 font-normal">Real-time</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-rose-400 font-mono tabular-nums">
+                  {filteredLossLogs.filter((l) => l.endedAt === null).length}
+                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">sự cố</span>
+                </span>
+                <span className="text-xs text-slate-400 font-mono tabular-nums">
+                  {filteredLossLogs.length} sự kiện lọc
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 line-clamp-1">
+                Tạm tính thời gian thực tế đến hiện tại
+              </p>
+            </div>
+          </div>
+
+          {/* Clean Segmented Filter Bar */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4 space-y-3.5">
+            {/* Row 1: Line Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 shrink-0">
+                  <Filter className="h-3.5 w-3.5" />
+                  Dây chuyền:
                 </span>
                 <button
                   onClick={() => setFilterLineId('ALL')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                     filterLineId === 'ALL'
-                      ? 'bg-orange-600 text-white shadow-sm'
-                      : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-orange-600 text-white font-semibold shadow-sm'
+                      : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
                   }`}
                 >
-                  Tất cả các Line ({lossLogs.length})
+                  Tất cả Line ({lossLogs.length})
                 </button>
                 {lines.map((l) => {
-                  const b = getLineBadgeStyle(l.id, lines);
                   const isSel = filterLineId === l.id;
                   const count = lossLogs.filter((x) => x.lineId === l.id).length;
                   return (
                     <button
                       key={l.id}
                       onClick={() => setFilterLineId(l.id)}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
                         isSel
-                          ? `${b.badgeClass} shadow-md`
-                          : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          ? 'bg-orange-600 text-white font-semibold shadow-sm'
+                          : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
                       }`}
                     >
-                      <span>{b.label}</span>
-                      <span className="text-[10px] opacity-80">({count})</span>
+                      <span>{l.code}</span>
+                      <span className="text-[11px] opacity-75 tabular-nums font-mono">({count})</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* Action Button: Nhập Loss Mới */}
+              {/* Primary Action Button */}
               <button
                 onClick={() => setViewMode('entry')}
-                className="flex items-center gap-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 px-3.5 py-1.5 text-xs font-black text-indigo-950 shadow-lg shadow-amber-950/40 transition-all cursor-pointer active:scale-95 ml-auto"
+                className="flex items-center gap-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
               >
                 <Plus className="h-4 w-4" />
-                <span>+ Ghi Nhận Sự Cố & Ảnh Hưởng</span>
+                <span>Ghi nhận sự cố & ảnh hưởng</span>
               </button>
             </div>
 
-            {/* Bottom row: Shift Pills + Date Filter + Search */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-400 mr-1">Ca SX:</span>
+            {/* Row 2: Shift, Date & Search */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-slate-400 shrink-0">Ca làm việc:</span>
                 <button
                   onClick={() => setFilterShiftId('ALL')}
-                  className={`px-2 py-0.5 text-xs font-semibold rounded-md transition-colors ${
+                  className={`px-2.5 py-1 text-xs rounded transition-colors ${
                     filterShiftId === 'ALL'
-                      ? 'bg-slate-700 text-white font-bold'
-                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                      ? 'bg-slate-700 text-white font-semibold'
+                      : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   Tất cả Ca
@@ -833,10 +917,10 @@ export function LossModule() {
                   <button
                     key={s.id}
                     onClick={() => setFilterShiftId(s.id)}
-                    className={`px-2 py-0.5 text-xs font-semibold rounded-md transition-colors ${
+                    className={`px-2.5 py-1 text-xs rounded transition-colors ${
                       filterShiftId === s.id
-                        ? 'bg-orange-600 text-white font-bold'
-                        : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                        ? 'bg-orange-600 text-white font-semibold'
+                        : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'
                     }`}
                   >
                     {s.name}
@@ -844,9 +928,10 @@ export function LossModule() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 bg-slate-800/90 rounded-lg px-2 py-1 border border-slate-700 text-xs">
-                  <Calendar className="h-3 w-3 text-amber-400" />
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {/* Date Picker */}
+                <div className="flex items-center gap-2 bg-slate-800/90 rounded-lg px-2.5 py-1.5 border border-slate-700 text-xs">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
                   <input
                     type="date"
                     disabled={isFilterAllDates}
@@ -862,39 +947,40 @@ export function LossModule() {
                       setFilterDate(todayStr);
                       setIsFilterAllDates(false);
                     }}
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
                       !isFilterAllDates && filterDate === todayStr
-                        ? 'bg-amber-500 text-slate-950 font-bold'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-slate-700 text-white font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
                     Hôm nay
                   </button>
                   <button
                     onClick={() => setIsFilterAllDates(!isFilterAllDates)}
-                    className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    className={`text-[11px] px-2 py-0.5 rounded transition-colors ${
                       isFilterAllDates
-                        ? 'bg-amber-500 text-slate-950 font-bold'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-slate-700 text-white font-semibold'
+                        : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    Tất cả ngày
+                    Tất cả
                   </button>
                 </div>
 
+                {/* Search */}
                 <div className="relative">
-                  <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-2" />
+                  <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Tìm sự cố, ảnh hưởng, nguồn..."
-                    className="rounded-lg border border-slate-700 bg-slate-800/90 pl-8 pr-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 focus:border-amber-400 focus:outline-none w-48 sm:w-60"
+                    placeholder="Tìm sự cố, nguyên nhân, thiết bị..."
+                    className="rounded-lg border border-slate-700 bg-slate-800/90 pl-8 pr-7 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-orange-500 focus:outline-none w-56 sm:w-64"
                   />
                   {searchTerm && (
                     <button
                       onClick={() => setSearchTerm('')}
-                      className="absolute right-2 top-2 text-slate-400 hover:text-white text-xs"
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white text-xs"
                     >
                       ✕
                     </button>
@@ -904,263 +990,214 @@ export function LossModule() {
             </div>
           </div>
 
-          {/* Scope-separated Loss Metrics Bar (Anti-Duplication Principle) */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-            {/* Scope 1: Nấu */}
-            <div className="rounded-xl border border-sky-800/60 bg-sky-950/20 p-3 space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-sky-400 font-bold uppercase tracking-wider">
-                <span>Phạm Vi Cụm Nấu</span>
-                <span className="text-[10px] text-sky-300/80">Công đoạn Nấu</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-xl font-black text-white font-mono">
-                  {scopeLossMetrics['Nấu'].totalConvertedLossMinutes}m
-                </span>
-                <span className="text-xs text-sky-300">
-                  sự cố: {scopeLossMetrics['Nấu'].totalDurationMinutes}m
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">
-                Tổn thất quy đổi tương đương độc lập công đoạn Nấu
-              </p>
-            </div>
-
-            {/* Scope 2: Cấp tương */}
-            <div className="rounded-xl border border-teal-800/60 bg-teal-950/20 p-3 space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-teal-400 font-bold uppercase tracking-wider">
-                <span>Phạm Vi Cấp Tương</span>
-                <span className="text-[10px] text-teal-300/80">Buffer / Làm nguội</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-xl font-black text-white font-mono">
-                  {scopeLossMetrics['Cấp tương'].totalConvertedLossMinutes}m
-                </span>
-                {scopeLossMetrics['Cấp tương'].hasInsufficientData && (
-                  <span className="text-[10px] rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                    Chưa đủ dữ liệu ứ bồn
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-slate-400">
-                Dừng cấp tương hoặc ứ bồn trung gian
-              </p>
-            </div>
-
-            {/* Scope 3: Đóng gói */}
-            <div className="rounded-xl border border-amber-800/60 bg-amber-950/20 p-3 space-y-1">
-              <div className="flex items-center justify-between text-[11px] text-amber-400 font-bold uppercase tracking-wider">
-                <span>Phạm Vi Đóng Gói</span>
-                <span className="text-[10px] text-amber-300/80">Chiết rót / Đóng thùng</span>
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-xl font-black text-white font-mono">
-                  {scopeLossMetrics['Đóng gói'].totalConvertedLossMinutes}m
-                </span>
-                <span className="text-xs text-amber-300">
-                  sự cố: {scopeLossMetrics['Đóng gói'].totalDurationMinutes}m
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">
-                Không cộng mù quáng vào tổng giờ của toàn xưởng
-              </p>
-            </div>
-
-            {/* Scope 4: Status overview */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-1">
-              <div className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
-                Theo Dõi Sự Cố Đang Mở
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-xl font-black text-rose-400 font-mono">
-                  {filteredLossLogs.filter((l) => l.endedAt === null).length} sự cố
-                </span>
-                <span className="text-xs text-amber-300">
-                  {filteredLossLogs.length} tổng sự kiện
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-400">
-                Tạm tính thời gian thực tế đến thời điểm hiện tại
-              </p>
-            </div>
-          </div>
-
           {/* ===================================================================== */}
-          {/* THE SHOPFLOOR LOSS LIST TABLE                                         */}
+          {/* THE SHOPFLOOR LOSS EVENT LIST (SPACIOUS ERGONOMIC CARDS)               */}
           {/* ===================================================================== */}
-          <div className="rounded-2xl border-2 border-amber-500/70 bg-gradient-to-b from-[#24083d] via-[#1a052e] to-[#0f031b] p-2.5 sm:p-4 shadow-2xl space-y-2">
-            {/* Header Box */}
-            <div className="rounded-xl border-2 border-amber-400/90 bg-amber-400/10 px-3 py-2 text-amber-300 font-black text-xs shadow-md">
-              <div className="grid grid-cols-12 gap-2 items-center text-center">
-                <div className="col-span-1">Line</div>
-                <div className="col-span-1">Ca / Nguồn</div>
-                <div className="col-span-4 text-left pl-2">Sự kiện & Nguyên nhân gốc</div>
-                <div className="col-span-4 text-left pl-2">Ảnh hưởng vận hành thực tế & Loss quy đổi</div>
-                <div className="col-span-1">Thời gian</div>
-                <div className="col-span-1 text-center">Rà soát</div>
-              </div>
-            </div>
-
-            {/* Rows List */}
+          <div className="space-y-3">
             {filteredLossLogs.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 space-y-3">
-                <p className="text-sm font-semibold">Chưa có sự cố nào thỏa mãn bộ lọc hiện tại.</p>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-12 text-center text-slate-400 space-y-3">
+                <ClockAlert className="h-8 w-8 mx-auto text-slate-500" />
+                <p className="text-sm font-medium text-slate-300">
+                  Không tìm thấy sự cố dừng máy nào phù hợp với bộ lọc hiện tại.
+                </p>
+                <p className="text-xs text-slate-500">
+                  Hãy thử chọn lại Line, Ca sản xuất hoặc nhấn vào nút bên dưới để ghi nhận sự cố mới.
+                </p>
                 <button
                   onClick={() => setViewMode('entry')}
-                  className="rounded-lg bg-amber-400 hover:bg-amber-300 px-4 py-2 text-xs font-black text-indigo-950 shadow transition-colors cursor-pointer"
+                  className="rounded-lg bg-orange-600 hover:bg-orange-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
                 >
-                  + Ghi Nhận Sự Cố Mới
+                  + Ghi nhận sự cố mới
                 </button>
               </div>
             ) : (
-              <div className="space-y-2">
-                {filteredLossLogs.map((log) => {
-                  const lineBadge = getLineBadgeStyle(log.lineId, lines);
-                  const shiftBadge = getShiftBadgeStyle(log.shiftId);
-                  const isLogOngoing = log.endedAt === null;
-                  const impacts = log.impacts || [];
+              filteredLossLogs.map((log) => {
+                const lineObj = lines.find((l) => l.id === log.lineId);
+                const shiftObj = SHIFTS.find((s) => s.id === log.shiftId);
+                const isLogOngoing = log.endedAt === null;
+                const impacts = log.impacts || [];
 
-                  return (
-                    <div
-                      key={log.id}
-                      className="rounded-xl border border-slate-700/60 bg-slate-900/80 p-3 hover:border-amber-500/50 transition-all text-xs"
-                    >
-                      <div className="grid grid-cols-12 gap-2 items-start">
-                        {/* 1. Line Pill */}
-                        <div className="col-span-1 flex flex-col items-center gap-1">
-                          <span className={`w-full py-1 px-1 rounded-full text-[11px] font-bold shadow text-center truncate ${lineBadge.badgeClass}`}>
-                            {lineBadge.label}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {formatDateVN(log.productionDate).slice(0, 5)}
-                          </span>
-                        </div>
+                return (
+                  <div
+                    key={log.id}
+                    className="rounded-xl border border-slate-800 bg-slate-900/90 p-4 sm:p-5 hover:border-slate-700 transition-colors space-y-3.5"
+                  >
+                    {/* Top Row: Context Kicker & Duration Status */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2 text-xs text-slate-400">
+                        <span className="font-semibold text-slate-200">
+                          {lineObj ? `${lineObj.code} - ${lineObj.name.split(' (')[0]}` : log.lineId}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span>{shiftObj?.name || log.shiftId}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono">{formatDateVN(log.productionDate)}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono text-slate-300">
+                          {formatTime(log.startedAt)} - {log.endedAt ? formatTime(log.endedAt) : 'Đang tiếp diễn'}
+                        </span>
+                      </div>
 
-                        {/* 2. Shift & Origin Source */}
-                        <div className="col-span-1 flex flex-col items-center gap-1">
-                          <span className={`w-full py-0.5 px-1 rounded-full text-[10px] text-center font-bold shadow ${shiftBadge.class}`}>
-                            {shiftBadge.label}
-                          </span>
-                          <span className="rounded px-1.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-semibold truncate w-full text-center" title={`Nguồn: ${log.source}`}>
-                            {log.source || 'CBTO'}
-                          </span>
-                        </div>
-
-                        {/* 3. Cause & Origin Stage */}
-                        <div className="col-span-4 space-y-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-slate-100 text-sm">
-                              {log.downtimeReason || log.lossGroup}
-                            </span>
-                            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-300 border border-slate-700">
-                              {log.lossGroup}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 text-[11px] text-slate-400 flex-wrap">
-                            <span>Công đoạn gốc: <strong className="text-amber-300">{log.originStage || 'Nấu'}</strong></span>
-                            <span>·</span>
-                            <span>Mô tả: {log.description || log.note || 'Không có mô tả chi tiết'}</span>
-                          </div>
-
-                          <div className="text-[10px] text-slate-500 flex items-center gap-2">
-                            <span>Sự cố: {formatTime(log.startedAt)} - {log.endedAt ? formatTime(log.endedAt) : 'Đang xảy ra'} ({log.durationMinutes}m)</span>
-                            <span>·</span>
-                            <span>Người ghi: {log.reportedByName || 'NV'}</span>
-                          </div>
-                        </div>
-
-                        {/* 4. Confirmed Operational Impacts (Child blocks) */}
-                        <div className="col-span-4 space-y-1.5 bg-slate-950/50 p-2 rounded-lg border border-slate-800">
-                          {impacts.length === 0 ? (
-                            <div className="text-slate-500 italic text-[11px]">
-                              Chưa gắn khoảng ảnh hưởng vận hành nào
-                            </div>
-                          ) : (
-                            impacts.map((imp) => {
-                              const badge = getImpactStatusBadge(imp.confirmationStatus);
-                              return (
-                                <div
-                                  key={imp.impactId}
-                                  className="flex items-center justify-between gap-1.5 border-b border-slate-800/80 pb-1 last:border-b-0 last:pb-0"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-semibold text-slate-200 truncate">
-                                        {getImpactLabel(imp.impactType)}
-                                      </span>
-                                      {imp.impactPercent !== null ? (
-                                        <span className="text-[10px] font-mono font-bold text-amber-400">
-                                          ({imp.impactPercent}%)
-                                        </span>
-                                      ) : (
-                                        <span className="text-[10px] text-purple-400 font-bold">
-                                          (Chưa định %)
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400">
-                                      Phạm vi: <strong>{imp.impactScope}</strong> · {formatTime(imp.impactStartedAt)} - {imp.impactEndedAt ? formatTime(imp.impactEndedAt) : 'Đang tiếp diễn'}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    {imp.convertedLossMinutes !== null ? (
-                                      <span className="font-mono font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 text-xs">
-                                        {imp.convertedLossMinutes}m quy đổi
-                                      </span>
-                                    ) : (
-                                      <span className="font-mono text-purple-300 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 text-[10px]">
-                                        Chưa đủ dữ liệu
-                                      </span>
-                                    )}
-
-                                    <span className={`text-[9px] px-1.5 py-0.2 rounded border font-semibold ${badge.badgeClass}`}>
-                                      {badge.label}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-
-                        {/* 5. Total Duration & Ongoing action */}
-                        <div className="col-span-1 flex flex-col items-center justify-center gap-1">
-                          <span className={`px-2 py-1 rounded-full font-mono font-bold text-xs shadow ${lineBadge.durClass}`}>
-                            {log.durationMinutes}m
-                          </span>
-                          {isLogOngoing && (
-                            <button
-                              onClick={() => handleOpenEndModal(log.id)}
-                              className="w-full text-[10px] py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold animate-pulse cursor-pointer shadow text-center"
-                            >
-                              Đang dừng
-                            </button>
-                          )}
-                        </div>
-
-                        {/* 6. View & Review Actions */}
-                        <div className="col-span-1 flex items-center justify-center gap-1.5">
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <span className="text-xs font-mono font-semibold text-slate-300 bg-slate-800 px-2.5 py-1 rounded">
+                          Sự cố {log.durationMinutes} phút
+                        </span>
+                        {isLogOngoing ? (
                           <button
-                            onClick={() => setDetailModalLog(log)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-slate-300 hover:text-amber-400 hover:bg-slate-700 transition-colors cursor-pointer"
-                            title="Xem chi tiết & Rà soát ảnh hưởng"
+                            onClick={() => handleOpenEndModal(log.id)}
+                            className="text-xs font-semibold px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white cursor-pointer transition-colors shadow-sm"
                           >
-                            <Eye className="h-4 w-4" />
+                            Đang dừng máy · Đóng sự cố
                           </button>
-                          <button
-                            onClick={() => handleDeleteLog(log.id, log.downtimeReason)}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-950/60 transition-colors cursor-pointer"
-                            title="Xóa sự cố"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        ) : (
+                          <span className="text-xs text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800/40">
+                            Đã kết thúc
+                          </span>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Middle Row: Cause & Description */}
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <h2 className="text-base font-bold text-white tracking-tight">
+                            {log.downtimeReason || log.lossGroup}
+                          </h2>
+                          <span className="text-xs text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded font-mono">
+                            {log.lossGroup}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap">
+                          <span>Nguồn: <strong className="text-slate-200">{log.source || 'CBTO'}</strong></span>
+                          <span aria-hidden="true">·</span>
+                          <span>Công đoạn gốc: <strong className="text-slate-200">{log.originStage || 'Nấu'}</strong></span>
+                          {log.equipmentId && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>Thiết bị: <span className="font-mono text-slate-300">{log.equipmentId}</span></span>
+                            </>
+                          )}
+                          <span aria-hidden="true">·</span>
+                          <span>Người ghi: {log.reportedByName || 'NV'}</span>
+                        </div>
+
+                        {(log.description || log.note) && (
+                          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                            {log.description || log.note}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Right Actions: View details & Delete */}
+                      <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
+                        <button
+                          onClick={() => setDetailModalLog(log)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 text-xs font-semibold text-slate-200 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Chi tiết & Rà soát</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteLog(log.id, log.downtimeReason)}
+                          className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-800 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          title="Xóa sự cố này"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Operational Impacts Block (The 6-Dimension Model) */}
+                    <div className="rounded-lg bg-slate-950/60 p-3.5 border border-slate-800/80 space-y-2">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-semibold text-slate-300 uppercase tracking-wider text-[11px]">
+                          Ảnh hưởng vận hành thực tế ({impacts.length})
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Loss quy đổi (phút) = Thời gian ảnh hưởng × Mức % / 100
+                        </span>
+                      </div>
+
+                      {impacts.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic py-1">
+                          Chưa có ảnh hưởng vận hành nào được gắn cho sự kiện này.
+                        </p>
+                      ) : (
+                        <div className="divide-y divide-slate-800/70">
+                          {impacts.map((imp) => {
+                            const isPending =
+                              imp.confirmationStatus === 'UNREVIEWED' ||
+                              imp.confirmationStatus === 'INSUFFICIENT_DATA';
+
+                            return (
+                              <div
+                                key={imp.impactId}
+                                className="py-2.5 first:pt-1 last:pb-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                              >
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-semibold text-slate-200">
+                                      {getImpactLabel(imp.impactType)}
+                                    </span>
+                                    <span className="text-xs font-mono font-bold text-amber-400">
+                                      {imp.impactPercent !== null ? `${imp.impactPercent}%` : 'Chưa định %'}
+                                    </span>
+                                    <span className="text-xs text-slate-400">
+                                      (Phạm vi: <strong className="text-slate-300">{imp.impactScope}</strong>)
+                                    </span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                                    <span>Công đoạn: {imp.affectedStage}</span>
+                                    <span aria-hidden="true">·</span>
+                                    <span className="font-mono">
+                                      {formatTime(imp.impactStartedAt)} - {imp.impactEndedAt ? formatTime(imp.impactEndedAt) : 'Đang tiếp diễn'}
+                                    </span>
+                                    {imp.note && (
+                                      <>
+                                        <span aria-hidden="true">·</span>
+                                        <span className="italic text-slate-400 truncate max-w-xs">{imp.note}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+                                  {imp.convertedLossMinutes !== null ? (
+                                    <div className="text-right">
+                                      <span className="text-sm font-bold font-mono tabular-nums text-rose-400 bg-rose-950/40 px-2.5 py-1 rounded border border-rose-800/40">
+                                        {imp.convertedLossMinutes}m Loss quy đổi
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs font-medium text-amber-300 bg-amber-950/40 px-2.5 py-1 rounded border border-amber-800/40">
+                                      Chưa đủ dữ liệu
+                                    </span>
+                                  )}
+
+                                  {isPending && (
+                                    <button
+                                      onClick={() => {
+                                        setDetailModalLog(log);
+                                        setQuickConfirmImpactId(imp.impactId);
+                                        setQuickConfirmPercent(imp.impactPercent || 50);
+                                      }}
+                                      className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/60 px-2.5 py-1 rounded border border-emerald-800/40 transition-colors cursor-pointer"
+                                    >
+                                      Xác nhận %
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -1187,29 +1224,29 @@ export function LossModule() {
           {/* --------------------------------------------------------------------- */}
           {/* BƯỚC 1: KHAI BÁO SỰ KIỆN & NGUYÊN NHÂN PHÁT SINH                      */}
           {/* --------------------------------------------------------------------- */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-slate-950 font-black text-xs">
-                  1
-                </span>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Thông Tin Sự Kiện & Nguyên Nhân Phát Sinh
+          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-800 pb-3.5">
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  01. Thông tin sự cố & nguyên nhân phát sinh
                 </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Tách biệt độc lập: Nguồn gốc · Nguyên nhân kỹ thuật · Công đoạn vật lý
+                </p>
               </div>
-              <span className="text-[11px] text-slate-400">Tách độc lập: Nguồn · Nguyên nhân · Công đoạn</span>
+              <span className="text-xs text-slate-500 font-mono">Bước 1/3</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
               {/* Nguồn phát sinh */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">
                   Nguồn phát sinh <span className="text-rose-400">*</span>
                 </label>
                 <select
                   value={formSource}
                   onChange={(e) => setFormSource(e.target.value as LossEventSource)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                 >
                   {LOSS_SOURCES.map((s) => (
                     <option key={s} value={s}>
@@ -1220,14 +1257,14 @@ export function LossModule() {
               </div>
 
               {/* Công đoạn phát sinh */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">
                   Công đoạn phát sinh <span className="text-rose-400">*</span>
                 </label>
                 <select
                   value={formOriginStage}
                   onChange={(e) => setFormOriginStage(e.target.value as LossOriginStage)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                 >
                   {ORIGIN_STAGES.map((stg) => (
                     <option key={stg} value={stg}>
@@ -1238,8 +1275,8 @@ export function LossModule() {
               </div>
 
               {/* Dây chuyền */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Dây chuyền</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">Dây chuyền</label>
                 <select
                   value={formLineId}
                   onChange={(e) => {
@@ -1247,23 +1284,23 @@ export function LossModule() {
                     const eqs = getEquipmentsByLine(e.target.value);
                     if (eqs.length > 0) setFormEquipmentId(eqs[0].id);
                   }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                 >
                   {lines.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {l.name} ({l.code})
+                      {l.code} - {l.name}
                     </option>
                   ))}
                 </select>
               </div>
 
               {/* Thiết bị phát sinh */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Thiết bị phát sinh</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">Thiết bị phát sinh</label>
                 <select
                   value={formEquipmentId}
                   onChange={(e) => setFormEquipmentId(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                 >
                   {lineEquipments.map((eq) => (
                     <option key={eq.id} value={eq.id}>
@@ -1274,8 +1311,8 @@ export function LossModule() {
               </div>
 
               {/* Nhóm nguyên nhân MVP (9 nhóm) */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">
                   Nhóm nguyên nhân (9 nhóm MVP) <span className="text-rose-400">*</span>
                 </label>
                 <select
@@ -1286,7 +1323,7 @@ export function LossModule() {
                     const base = DOWNTIME_REASONS[grp] || [];
                     if (base.length > 0) setFormReason(base[0]);
                   }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                 >
                   {OFFICIAL_LOSS_GROUPS.map((g) => (
                     <option key={g} value={g}>
@@ -1297,12 +1334,12 @@ export function LossModule() {
               </div>
 
               {/* Nguyên nhân chi tiết */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Nguyên nhân chi tiết</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">Nguyên nhân chi tiết</label>
                 <select
                   value={formReason}
                   onChange={(e) => setFormReason(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                 >
                   {reasonsForCategory.map((r) => (
                     <option key={r} value={r}>
@@ -1313,24 +1350,24 @@ export function LossModule() {
               </div>
 
               {/* Mã nguyên nhân (Cause code) */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Mã nguyên nhân</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">Mã nguyên nhân</label>
                 <input
                   type="text"
                   value={formCauseCode}
                   onChange={(e) => setFormCauseCode(e.target.value)}
                   placeholder="Ví dụ: BD-MECH-01"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none transition-colors"
                 />
               </div>
 
               {/* Ca sản xuất */}
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Ca sản xuất</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">Ca sản xuất</label>
                 <select
                   value={formShiftId}
                   onChange={(e) => setFormShiftId(e.target.value as ShiftId)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                 >
                   {SHIFTS.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -1341,22 +1378,57 @@ export function LossModule() {
               </div>
 
               {/* Mô tả sự kiện */}
-              <div className="col-span-1 sm:col-span-2 lg:col-span-4">
-                <label className="block text-slate-300 font-semibold mb-1">
-                  Mô tả sự kiện chi tiết <span className="text-slate-400 font-normal">(Hiện trường ghi nhận)</span>
+              <div className="col-span-1 sm:col-span-2 lg:col-span-4 space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-300">
+                  Mô tả sự kiện chi tiết <span className="text-slate-500 font-normal">(Hiện trường ghi nhận)</span>
                 </label>
                 <textarea
                   rows={2}
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Mô tả hiện tượng: rung motor, sụt áp steam, rò rỉ phốt, tắc bơm..."
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white focus:border-amber-400 focus:outline-none text-xs"
+                  placeholder="Mô tả hiện tượng: kẹt van bồn nấu, rò rỉ cơ khí, sụt áp steam nguồn cấp..."
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm text-white focus:border-orange-500 focus:outline-none leading-relaxed transition-colors"
                 />
               </div>
 
               {/* Thời điểm bắt đầu sự cố */}
-              <div className="col-span-1 sm:col-span-2">
-                <label className="block text-slate-300 font-semibold mb-1">Thời điểm bắt đầu sự cố</label>
+              <div className="col-span-1 sm:col-span-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold text-slate-300">Thời điểm bắt đầu sự cố</label>
+                  {/* Convenient Presets for Operators */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const pad = (n: number) => n.toString().padStart(2, '0');
+                        setStartDay(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
+                        setStartHour(pad(now.getHours()));
+                        setStartMin(pad(now.getMinutes()));
+                        syncDraftTimestamps(now.toISOString(), isOngoing ? null : endIsoString);
+                      }}
+                      className="text-[11px] text-orange-400 hover:text-orange-300 font-medium px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      Bây giờ
+                    </button>
+                    <span className="text-slate-600">·</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const past = new Date(Date.now() - 30 * 60000);
+                        const pad = (n: number) => n.toString().padStart(2, '0');
+                        setStartDay(`${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}`);
+                        setStartHour(pad(past.getHours()));
+                        setStartMin(pad(past.getMinutes()));
+                        syncDraftTimestamps(past.toISOString(), isOngoing ? null : endIsoString);
+                      }}
+                      className="text-[11px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                    >
+                      30p trước
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   <input
                     type="date"
@@ -1364,9 +1436,9 @@ export function LossModule() {
                     onChange={(e) => {
                       setStartDay(e.target.value);
                       const s = new Date(`${e.target.value}T${startHour}:${startMin}:00`).toISOString();
-                      syncDraftTimestamps(s, endIsoString);
+                      syncDraftTimestamps(s, isOngoing ? null : endIsoString);
                     }}
-                    className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono focus:border-amber-400 focus:outline-none"
+                    className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none"
                   />
                   <input
                     type="text"
@@ -1374,10 +1446,10 @@ export function LossModule() {
                     onChange={(e) => {
                       setStartHour(e.target.value);
                       const s = new Date(`${startDay}T${e.target.value}:${startMin}:00`).toISOString();
-                      syncDraftTimestamps(s, endIsoString);
+                      syncDraftTimestamps(s, isOngoing ? null : endIsoString);
                     }}
                     placeholder="HH (0-23)"
-                    className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono text-center focus:border-amber-400 focus:outline-none"
+                    className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
                   />
                   <input
                     type="text"
@@ -1385,19 +1457,19 @@ export function LossModule() {
                     onChange={(e) => {
                       setStartMin(e.target.value);
                       const s = new Date(`${startDay}T${startHour}:${e.target.value}:00`).toISOString();
-                      syncDraftTimestamps(s, endIsoString);
+                      syncDraftTimestamps(s, isOngoing ? null : endIsoString);
                     }}
                     placeholder="MM (0-59)"
-                    className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono text-center focus:border-amber-400 focus:outline-none"
+                    className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Thời điểm kết thúc hoặc Đang diễn ra */}
-              <div className="col-span-1 sm:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-slate-300 font-semibold">Thời điểm kết thúc sự cố</label>
-                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-rose-300 font-bold">
+              <div className="col-span-1 sm:col-span-2 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300">Thời điểm kết thúc sự cố</label>
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-rose-300 font-medium">
                     <input
                       type="checkbox"
                       checked={isOngoing}
@@ -1405,9 +1477,9 @@ export function LossModule() {
                         setIsOngoing(e.target.checked);
                         syncDraftTimestamps(startIsoString, e.target.checked ? null : endIsoString);
                       }}
-                      className="rounded border-slate-700 text-rose-600 focus:ring-rose-500"
+                      className="rounded border-slate-700 text-rose-600 focus:ring-rose-500 h-4 w-4"
                     />
-                    <span>Sự cố đang diễn ra (Tạm tính)</span>
+                    <span>Sự cố đang tiếp diễn (Tạm tính)</span>
                   </label>
                 </div>
 
@@ -1421,7 +1493,7 @@ export function LossModule() {
                         const end = new Date(`${e.target.value}T${endHour}:${endMin}:00`).toISOString();
                         syncDraftTimestamps(startIsoString, end);
                       }}
-                      className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono focus:border-amber-400 focus:outline-none"
+                      className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none"
                     />
                     <input
                       type="text"
@@ -1432,7 +1504,7 @@ export function LossModule() {
                         syncDraftTimestamps(startIsoString, end);
                       }}
                       placeholder="HH (0-23)"
-                      className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono text-center focus:border-amber-400 focus:outline-none"
+                      className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
                     />
                     <input
                       type="text"
@@ -1443,12 +1515,12 @@ export function LossModule() {
                         syncDraftTimestamps(startIsoString, end);
                       }}
                       placeholder="MM (0-59)"
-                      className="rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono text-center focus:border-amber-400 focus:outline-none"
+                      className="rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono text-center focus:border-orange-500 focus:outline-none"
                     />
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-2 text-center text-rose-300 text-xs font-semibold">
-                    Đang tính toán tạm thời theo thời gian thực hiện trường...
+                  <div className="rounded-lg border border-rose-800/40 bg-rose-950/20 py-2.5 px-4 text-center text-rose-300 text-xs font-medium">
+                    Sự cố đang tiếp diễn — hệ thống tự động tạm tính Loss quy đổi đến thời điểm hiện tại
                   </div>
                 )}
               </div>
@@ -1459,48 +1531,50 @@ export function LossModule() {
           {/* BƯỚC 2: RULE ENGINE GỢI Ý THÔNG MINH (CBTO ADVISORY)                  */}
           {/* --------------------------------------------------------------------- */}
           {ruleSuggestions.length > 0 && (
-            <div className="rounded-2xl border border-amber-500/50 bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 p-4 space-y-3 shadow-xl">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-amber-300 font-bold text-xs uppercase tracking-wider">
+            <div className="rounded-xl border border-amber-800/60 bg-amber-950/20 p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-amber-800/40 pb-3">
+                <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-amber-400" />
-                  <span>Rule Engine: Gợi Ý Đánh Giá Ảnh Hưởng Vận Hành (Advisory Only)</span>
+                  <h3 className="text-sm font-bold text-amber-300 tracking-tight">
+                    02. Gợi ý từ Rule Engine CBTO (Chỉ mang tính chất tham khảo)
+                  </h3>
                 </div>
-                <span className="text-[10px] text-slate-400 italic">
-                  Không tự động áp dụng — Người dùng luôn xác nhận hoặc chỉnh sửa
+                <span className="text-xs text-slate-400">
+                  Không tự áp dụng — Người dùng luôn chủ động xác nhận hoặc chỉnh sửa
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {ruleSuggestions.map((sug) => (
                   <div
                     key={sug.ruleId}
-                    className="rounded-xl border border-amber-500/30 bg-slate-900/90 p-3 space-y-2 flex flex-col justify-between"
+                    className="rounded-lg border border-slate-800 bg-slate-900/90 p-4 space-y-3 flex flex-col justify-between"
                   >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-white text-xs">{sug.title}</span>
-                        <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-white text-xs">{sug.title}</span>
+                        <span className="text-xs font-semibold text-amber-400 bg-amber-950/50 px-2 py-0.5 rounded border border-amber-800/40">
                           {getImpactLabel(sug.suggestedImpactType)}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-300 mt-1">{sug.rationale}</p>
+                      <p className="text-xs text-slate-300 leading-relaxed">{sug.rationale}</p>
                       {sug.warningNote && (
-                        <p className="text-[10px] text-amber-300/90 bg-amber-950/40 p-1.5 rounded mt-1.5 border border-amber-800/40">
-                          ⚠ {sug.warningNote}
+                        <p className="text-xs text-amber-300/90 bg-amber-950/30 p-2 rounded border border-amber-800/30">
+                          {sug.warningNote}
                         </p>
                       )}
                     </div>
 
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-800/80">
-                      <span className="text-[10px] font-mono text-slate-400">
-                        Mức gợi ý: <strong>{sug.suggestedPercent !== null ? `${sug.suggestedPercent}%` : 'Chưa định %'}</strong>
+                    <div className="pt-3 flex items-center justify-between border-t border-slate-800">
+                      <span className="text-xs font-mono text-slate-400">
+                        Gợi ý: <strong>{sug.suggestedPercent !== null ? `${sug.suggestedPercent}%` : 'Chưa định %'}</strong>
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyRuleSuggestion(sug)}
-                        className="rounded-lg bg-amber-400 hover:bg-amber-300 px-3 py-1 font-bold text-[11px] text-indigo-950 shadow transition-colors cursor-pointer"
+                        className="rounded-md bg-orange-600 hover:bg-orange-500 px-3.5 py-1.5 font-semibold text-xs text-white shadow-sm transition-colors cursor-pointer"
                       >
-                        Áp Dụng Gợi Ý
+                        Áp dụng gợi ý
                       </button>
                     </div>
                   </div>
@@ -1512,36 +1586,29 @@ export function LossModule() {
           {/* --------------------------------------------------------------------- */}
           {/* BƯỚC 3: KHAI BÁO CÁC KHOẢNG ẢNH HƯỞNG VẬN HÀNH THỰC TẾ               */}
           {/* --------------------------------------------------------------------- */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 space-y-4 shadow-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-slate-950 font-black text-xs">
-                  2
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Khai Báo Ảnh Hưởng Vận Hành Thực Tế
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Công thức: <strong>Loss quy đổi (phút) = Thời gian ảnh hưởng (phút) × Mức ảnh hưởng (%) / 100</strong>
-                  </p>
-                </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  03. Khai báo ảnh hưởng vận hành thực tế
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Công thức chuẩn: <strong>Loss quy đổi (phút) = Thời gian ảnh hưởng thực tế (phút) × Mức ảnh hưởng (%) / 100</strong>
+                </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleAddDraftInterval}
-                  className="flex items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-950/40 px-3 py-1.5 text-xs font-bold text-sky-300 hover:bg-sky-900/60 transition-colors cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>+ Thêm Khoảng Mức Độ Khác</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleAddDraftInterval}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:text-white transition-colors cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>+ Thêm khoảng ảnh hưởng</span>
+              </button>
             </div>
 
             {/* Intervals List */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               {draftImpacts.map((draft, idx) => {
                 const isNone = draft.impactType === 'NONE';
                 const isCongestion = draft.impactType === 'COOLING_BUFFER_CONGESTION';
@@ -1558,15 +1625,16 @@ export function LossModule() {
                 return (
                   <div
                     key={draft.tempId}
-                    className="rounded-xl border border-slate-800 bg-slate-950/70 p-3.5 space-y-3 text-xs"
+                    className="rounded-lg border border-slate-800 bg-slate-950/70 p-4 space-y-4"
                   >
-                    <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-mono font-bold text-slate-300">
-                          Khoảng {idx + 1}
+                    <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="font-semibold text-white">
+                          Khoảng thời gian #{idx + 1}
                         </span>
-                        <span className="text-slate-300 font-semibold">
-                          Phạm vi: <strong className="text-amber-400">{getImpactScope(draft.impactType)}</strong>
+                        <span aria-hidden="true">·</span>
+                        <span className="text-slate-400">
+                          Phạm vi: <strong className="text-slate-200">{getImpactScope(draft.impactType)}</strong>
                         </span>
                       </div>
 
@@ -1574,18 +1642,18 @@ export function LossModule() {
                         <button
                           type="button"
                           onClick={() => handleDeleteDraftInterval(draft.tempId)}
-                          className="text-slate-500 hover:text-rose-400 p-1"
+                          className="text-xs text-slate-500 hover:text-rose-400 p-1 transition-colors cursor-pointer"
                           title="Xóa khoảng này"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          Xóa khoảng
                         </button>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* Loại ảnh hưởng */}
-                      <div>
-                        <label className="block text-slate-300 font-semibold mb-1">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-slate-300">
                           Loại ảnh hưởng <span className="text-rose-400">*</span>
                         </label>
                         <select
@@ -1598,7 +1666,7 @@ export function LossModule() {
                               isInsufficientData: val === 'COOLING_BUFFER_CONGESTION',
                             });
                           }}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                         >
                           {IMPACT_TYPES.map((t) => (
                             <option key={t} value={t}>
@@ -1609,12 +1677,12 @@ export function LossModule() {
                       </div>
 
                       {/* Công đoạn chịu ảnh hưởng */}
-                      <div>
-                        <label className="block text-slate-300 font-semibold mb-1">Công đoạn chịu ảnh hưởng</label>
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-slate-300">Công đoạn chịu ảnh hưởng</label>
                         <select
                           value={draft.affectedStage}
                           onChange={(e) => handleUpdateDraftInterval(draft.tempId, { affectedStage: e.target.value })}
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-medium focus:border-amber-400 focus:outline-none"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-medium focus:border-orange-500 focus:outline-none transition-colors"
                         >
                           {ORIGIN_STAGES.map((s) => (
                             <option key={s} value={s}>
@@ -1625,26 +1693,26 @@ export function LossModule() {
                       </div>
 
                       {/* Mức độ ảnh hưởng (%) */}
-                      <div className="col-span-1 sm:col-span-2">
-                        <label className="block text-slate-300 font-semibold mb-1">
+                      <div className="col-span-1 sm:col-span-2 space-y-1.5">
+                        <label className="block text-xs font-semibold text-slate-300">
                           Mức độ ảnh hưởng (%) {isNone && '— 0% (Loại trừ)'}
                         </label>
                         {isNone ? (
-                          <div className="rounded-lg border border-slate-800 bg-slate-900 p-2 text-slate-400 italic">
+                          <div className="rounded-lg border border-slate-800 bg-slate-900 py-2.5 px-3 text-slate-400 text-xs italic">
                             Không ảnh hưởng vận hành: Mức ảnh hưởng 0%, Loss quy đổi bằng 0.
                           </div>
                         ) : (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="space-y-2.5">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {QUICK_PERCENTS.map((pct) => (
                                 <button
                                   key={pct}
                                   type="button"
                                   onClick={() => handleUpdateDraftInterval(draft.tempId, { impactPercent: pct, isInsufficientData: false })}
-                                  className={`px-3 py-1 rounded text-xs font-bold transition-all ${
+                                  className={`h-10 px-4 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                                     draft.impactPercent === pct && !draft.isInsufficientData
-                                      ? 'bg-amber-400 text-slate-950 font-black shadow'
-                                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                                      ? 'bg-orange-600 text-white shadow-sm'
+                                      : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
                                   }`}
                                 >
                                   {pct}%
@@ -1652,8 +1720,8 @@ export function LossModule() {
                               ))}
 
                               {/* Manual Input */}
-                              <div className="flex items-center gap-1 ml-auto">
-                                <span className="text-[11px] text-slate-400">Tùy chỉnh:</span>
+                              <div className="flex items-center gap-1.5 ml-auto">
+                                <span className="text-xs text-slate-400">Tùy chỉnh:</span>
                                 <input
                                   type="number"
                                   min={1}
@@ -1665,15 +1733,15 @@ export function LossModule() {
                                     handleUpdateDraftInterval(draft.tempId, { impactPercent: val, isInsufficientData: false });
                                   }}
                                   placeholder="1-100"
-                                  className="w-16 rounded border border-slate-700 bg-slate-800 p-1 text-white font-mono text-center focus:border-amber-400 focus:outline-none"
+                                  className="w-16 h-10 rounded-lg border border-slate-700 bg-slate-800 p-2 text-white font-mono text-center focus:border-orange-500 focus:outline-none text-sm"
                                 />
-                                <span className="text-slate-400">%</span>
+                                <span className="text-slate-400 text-xs">%</span>
                               </div>
                             </div>
 
                             {/* Insufficient data checkbox for cooling congestion */}
                             {isCongestion && (
-                              <label className="flex items-center gap-2 cursor-pointer text-[11px] text-purple-300">
+                              <label className="flex items-center gap-2 cursor-pointer text-xs text-amber-300">
                                 <input
                                   type="checkbox"
                                   checked={draft.isInsufficientData}
@@ -1683,9 +1751,9 @@ export function LossModule() {
                                       impactPercent: e.target.checked ? null : 50,
                                     })
                                   }
-                                  className="rounded border-slate-700 text-purple-600 focus:ring-purple-500"
+                                  className="rounded border-slate-700 text-amber-500 focus:ring-amber-400 h-4 w-4"
                                 />
-                                <span>Chưa xác định được tỷ lệ % (Gắn cờ &quot;Chưa đủ dữ liệu&quot; — không mặc định 0% hoặc 100%)</span>
+                                <span>Chưa xác định tỷ lệ % (Gắn cờ &quot;Chưa đủ dữ liệu&quot; — không mặc định 0% hoặc 100%)</span>
                               </label>
                             )}
                           </div>
@@ -1693,30 +1761,30 @@ export function LossModule() {
                       </div>
 
                       {/* Ghi chú / Căn cứ xác nhận */}
-                      <div className="col-span-1 sm:col-span-2 lg:col-span-3">
-                        <label className="block text-slate-300 font-semibold mb-1">Căn cứ / Ghi chú ảnh hưởng</label>
+                      <div className="col-span-1 sm:col-span-2 lg:col-span-3 space-y-1.5">
+                        <label className="block text-xs font-semibold text-slate-300">Căn cứ / Ghi chú ảnh hưởng</label>
                         <input
                           type="text"
                           value={draft.note}
                           onChange={(e) => handleUpdateDraftInterval(draft.tempId, { note: e.target.value })}
                           placeholder="Ví dụ: Nồi 1 dừng motor, nồi 2 chạy bình thường -> giảm tải 50%"
-                          className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2 text-white text-xs focus:border-amber-400 focus:outline-none"
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white focus:border-orange-500 focus:outline-none transition-colors"
                         />
                       </div>
 
                       {/* Live Computed Card */}
-                      <div className="col-span-1 bg-slate-900 p-2.5 rounded-lg border border-slate-800 flex flex-col justify-center">
-                        <span className="text-[10px] text-slate-400 uppercase font-semibold">Loss Quy Đổi Khoảng Này</span>
+                      <div className="col-span-1 bg-slate-900/90 p-3 rounded-lg border border-slate-800 flex flex-col justify-center">
+                        <span className="text-[11px] text-slate-400 font-medium">Loss quy đổi khoảng này</span>
                         <div className="mt-1 flex items-baseline gap-1">
                           {metrics.convertedLossMinutes !== null ? (
                             <>
-                              <span className="text-xl font-black text-rose-400 font-mono">
+                              <span className="text-2xl font-bold text-rose-400 font-mono tabular-nums">
                                 {metrics.convertedLossMinutes}
                               </span>
-                              <span className="text-xs text-slate-400">phút ({metrics.durationMinutes}p thực tế)</span>
+                              <span className="text-xs text-slate-400">phút ({metrics.durationMinutes}m thực tế)</span>
                             </>
                           ) : (
-                            <span className="text-xs text-purple-400 font-bold">Chưa đủ dữ liệu</span>
+                            <span className="text-xs text-amber-300 font-semibold">Chưa đủ dữ liệu</span>
                           )}
                         </div>
                       </div>
@@ -1727,33 +1795,34 @@ export function LossModule() {
             </div>
 
             {/* Total Converted Loss Banner */}
-            <div className="rounded-xl border border-amber-500/40 bg-amber-950/20 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="rounded-lg border border-slate-800 bg-slate-900/90 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                  Tổng Hợp Loss Quy Đổi Của Sự Kiện
+                <span className="text-sm font-bold text-white">
+                  Tổng hợp Loss quy đổi của sự kiện
                 </span>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Cộng chính xác các khoảng thời gian trước khi hiển thị; không làm tròn từng khoảng lẻ
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <div className="text-2xl font-black text-rose-400 font-mono">
-                    {draftMetricsSummary.totalConvertedLoss} phút
+                  <div className="text-3xl font-bold text-rose-400 font-mono tabular-nums">
+                    {draftMetricsSummary.totalConvertedLoss}
+                    <span className="text-base font-sans font-normal text-slate-400 ml-1">phút</span>
                   </div>
                   {draftMetricsSummary.hasInsufficientData && (
-                    <span className="text-[10px] text-purple-300 italic">
-                      + Có khoảng đang ở trạng thái Chưa đủ dữ liệu
+                    <span className="text-xs text-amber-400 font-medium">
+                      + Có khoảng chưa đủ dữ liệu
                     </span>
                   )}
                 </div>
 
                 <button
                   type="submit"
-                  className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 px-6 py-2.5 text-xs font-black text-indigo-950 shadow-lg shadow-orange-950/50 transition-all cursor-pointer active:scale-95"
+                  className="rounded-lg bg-orange-600 hover:bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  XÁC NHẬN & LƯU SỰ CỐ
+                  Xác nhận & Lưu sự cố
                 </button>
               </div>
             </div>
@@ -1765,42 +1834,128 @@ export function LossModule() {
       {/* VIEW 3: PHÂN BỔ 9 NHÓM LOSS & TỔNG HỢP THEO PHẠM VI                         */}
       {/* ========================================================================= */}
       {viewMode === 'analytics' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-xl border border-sky-800 bg-sky-950/30 p-4 space-y-2">
-              <h3 className="text-xs font-bold text-sky-400 uppercase tracking-wider">
-                1. Phạm Vi Nấu (Cooking Scope)
-              </h3>
-              <p className="text-xs text-slate-300">
-                Các sự cố làm dừng nồi nấu hoặc giảm năng lực nấu cụm bồn.
+        <div className="space-y-6">
+          {/* 3 Scope Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-sky-400">
+                <span>01. Phạm vi Cụm Nấu (Cooking Scope)</span>
+                <span className="text-slate-500 font-normal">Nồi nấu N01/N02</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Các sự cố làm dừng nồi nấu hoặc giảm năng lực nấu cụm bồn. Không suy diễn làm dừng đóng gói nếu ĐG vẫn chạy từ buffer.
               </p>
-              <div className="pt-2 text-2xl font-black text-white font-mono">
-                {scopeLossMetrics['Nấu'].totalConvertedLossMinutes} phút Loss
+              <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-white font-mono tabular-nums">
+                  {scopeLossMetrics['Nấu'].totalConvertedLossMinutes}
+                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút Loss</span>
+                </span>
+                <span className="text-xs text-slate-400 font-mono tabular-nums">
+                  sự cố: {scopeLossMetrics['Nấu'].totalDurationMinutes}m
+                </span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-teal-800 bg-teal-950/30 p-4 space-y-2">
-              <h3 className="text-xs font-bold text-teal-400 uppercase tracking-wider">
-                2. Phạm Vi Cấp Tương (Feed Scope)
-              </h3>
-              <p className="text-xs text-slate-300">
-                Dừng cấp tương cho ĐG hoặc tương tích lũy tại bồn làm nguội.
+            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-teal-400">
+                <span>02. Phạm vi Cấp Tương (Feed Scope)</span>
+                <span className="text-slate-500 font-normal">Buffer / Làm nguội</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Dừng cấp tương cho ĐG hoặc tương tích lũy tại bồn làm nguội. Ghi nhận thời gian tồn tại và rà soát tỷ lệ % thực tế.
               </p>
-              <div className="pt-2 text-2xl font-black text-white font-mono">
-                {scopeLossMetrics['Cấp tương'].totalConvertedLossMinutes} phút Loss
+              <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-white font-mono tabular-nums">
+                  {scopeLossMetrics['Cấp tương'].totalConvertedLossMinutes}
+                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút Loss</span>
+                </span>
+                {scopeLossMetrics['Cấp tương'].hasInsufficientData && (
+                  <span className="text-xs text-amber-400 font-medium">
+                    Có sự cố chờ xác nhận %
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="rounded-xl border border-amber-800 bg-amber-950/30 p-4 space-y-2">
-              <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                3. Phạm Vi Đóng Gói (Packing Scope)
-              </h3>
-              <p className="text-xs text-slate-300">
-                Dừng máy chiết rót, dán nhãn, đóng thùng hoặc giảm tốc độ đóng gói.
-              </p>
-              <div className="pt-2 text-2xl font-black text-white font-mono">
-                {scopeLossMetrics['Đóng gói'].totalConvertedLossMinutes} phút Loss
+            <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-amber-400">
+                <span>03. Phạm vi Đóng Gói (Packing Scope)</span>
+                <span className="text-slate-500 font-normal">Chiết / Dán / Thùng</span>
               </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Dừng máy chiết rót, vặn nắp, dán nhãn hoặc giảm tốc đóng gói. Phạm vi độc lập, không cộng dồn vào tổng toàn xưởng.
+              </p>
+              <div className="pt-2 border-t border-slate-800 flex items-baseline justify-between">
+                <span className="text-3xl font-bold text-white font-mono tabular-nums">
+                  {scopeLossMetrics['Đóng gói'].totalConvertedLossMinutes}
+                  <span className="text-sm font-sans font-normal text-slate-400 ml-1">phút Loss</span>
+                </span>
+                <span className="text-xs text-slate-400 font-mono tabular-nums">
+                  sự cố: {scopeLossMetrics['Đóng gói'].totalDurationMinutes}m
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Breakdown by 9 Loss Groups Table */}
+          <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white">
+                Phân bổ Loss theo 9 Nhóm Nguyên Nhân MVP CBTO
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Tổng hợp thời lượng sự cố thực tế và các tác động vận hành liên đới đã ghi nhận
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 font-semibold">
+                    <th className="py-2.5 px-3">Nhóm nguyên nhân</th>
+                    <th className="py-2.5 px-3 text-right">Số sự kiện</th>
+                    <th className="py-2.5 px-3 text-right">Tổng thời gian sự cố</th>
+                    <th className="py-2.5 px-3 text-right">Loss quy đổi (Nấu)</th>
+                    <th className="py-2.5 px-3 text-right">Loss quy đổi (Cấp tương)</th>
+                    <th className="py-2.5 px-3 text-right">Loss quy đổi (Đóng gói)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {OFFICIAL_LOSS_GROUPS.map((grp) => {
+                    const logs = filteredLossLogs.filter((l) => l.lossGroup === grp);
+                    const totalDur = logs.reduce((acc, l) => acc + l.durationMinutes, 0);
+                    const cookLoss = logs
+                      .flatMap((l) => l.impacts || [])
+                      .filter((imp) => imp.impactScope === 'Nấu' && imp.convertedLossMinutes !== null)
+                      .reduce((acc, imp) => acc + (imp.convertedLossMinutes || 0), 0);
+                    const feedLoss = logs
+                      .flatMap((l) => l.impacts || [])
+                      .filter((imp) => imp.impactScope === 'Cấp tương' && imp.convertedLossMinutes !== null)
+                      .reduce((acc, imp) => acc + (imp.convertedLossMinutes || 0), 0);
+                    const packLoss = logs
+                      .flatMap((l) => l.impacts || [])
+                      .filter((imp) => imp.impactScope === 'Đóng gói' && imp.convertedLossMinutes !== null)
+                      .reduce((acc, imp) => acc + (imp.convertedLossMinutes || 0), 0);
+
+                    return (
+                      <tr key={grp} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3 font-sans font-medium text-slate-200">{grp}</td>
+                        <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">{logs.length}</td>
+                        <td className="py-2.5 px-3 text-right text-slate-300 tabular-nums">{totalDur}m</td>
+                        <td className="py-2.5 px-3 text-right text-sky-400 font-semibold tabular-nums">
+                          {cookLoss > 0 ? `${cookLoss}m` : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-teal-400 font-semibold tabular-nums">
+                          {feedLoss > 0 ? `${feedLoss}m` : '-'}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-amber-400 font-semibold tabular-nums">
+                          {packLoss > 0 ? `${packLoss}m` : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -1811,20 +1966,19 @@ export function LossModule() {
       {/* ========================================================================= */}
       {detailModalLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-2xl rounded-2xl border border-amber-500/40 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 p-5 space-y-4 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-xl border border-slate-700 bg-slate-900 p-6 space-y-5 shadow-2xl text-xs max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                    getLineBadgeStyle(detailModalLog.lineId, lines).badgeClass
-                  }`}
-                >
-                  {getLineBadgeStyle(detailModalLog.lineId, lines).label}
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-white">Chi Tiết Sự Cố & Rà Soát Ảnh Hưởng</h3>
-                  <p className="text-[10px] text-slate-400 font-mono">Event ID: {detailModalLog.id}</p>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3.5">
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">Chi tiết sự cố & rà soát ảnh hưởng</h3>
+                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                  <span className="font-semibold text-slate-200">
+                    {lines.find((l) => l.id === detailModalLog.lineId)?.code || detailModalLog.lineId}
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span>{detailModalLog.productionDate}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono text-[11px] text-slate-500">ID: {detailModalLog.id}</span>
                 </div>
               </div>
               <button
@@ -1832,68 +1986,68 @@ export function LossModule() {
                   setDetailModalLog(null);
                   setQuickConfirmImpactId(null);
                 }}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+                className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Event Info Table */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-800/40 p-3 rounded-xl border border-slate-700/60">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase">Nguồn phát sinh</span>
-                <p className="font-bold text-indigo-300 mt-0.5">{detailModalLog.source || 'CBTO'}</p>
+            {/* Event Info Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950/60 p-4 rounded-lg border border-slate-800">
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-slate-400 uppercase font-medium">Nguồn phát sinh</span>
+                <p className="font-semibold text-slate-200">{detailModalLog.source || 'CBTO'}</p>
               </div>
 
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase">Công đoạn gốc</span>
-                <p className="font-bold text-amber-300 mt-0.5">{detailModalLog.originStage || 'Nấu'}</p>
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-slate-400 uppercase font-medium">Công đoạn gốc</span>
+                <p className="font-semibold text-slate-200">{detailModalLog.originStage || 'Nấu'}</p>
               </div>
 
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase">Nhóm nguyên nhân</span>
-                <p className="font-semibold text-slate-200 mt-0.5">{detailModalLog.lossGroup}</p>
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-slate-400 uppercase font-medium">Nhóm nguyên nhân</span>
+                <p className="font-semibold text-slate-200">{detailModalLog.lossGroup}</p>
               </div>
 
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase">Ca & Ngày SX</span>
-                <p className="font-semibold text-slate-200 mt-0.5">
-                  {getShiftBadgeStyle(detailModalLog.shiftId).label} · {detailModalLog.productionDate}
+              <div className="space-y-0.5">
+                <span className="text-[11px] text-slate-400 uppercase font-medium">Ca làm việc</span>
+                <p className="font-semibold text-slate-200">
+                  {SHIFTS.find((s) => s.id === detailModalLog.shiftId)?.name || detailModalLog.shiftId}
                 </p>
               </div>
 
-              <div className="col-span-2">
-                <span className="text-[10px] text-slate-400 uppercase">Nguyên nhân chi tiết</span>
-                <p className="font-bold text-amber-400 text-sm mt-0.5">
+              <div className="col-span-2 space-y-0.5 pt-2 border-t border-slate-800/80">
+                <span className="text-[11px] text-slate-400 uppercase font-medium">Nguyên nhân chi tiết</span>
+                <p className="font-bold text-white text-sm">
                   {detailModalLog.downtimeReason || detailModalLog.lossGroup}
                 </p>
               </div>
 
-              <div className="col-span-2">
-                <span className="text-[10px] text-slate-400 uppercase">Thời gian sự cố</span>
-                <p className="font-mono font-semibold text-slate-200 mt-0.5">
-                  {formatTime(detailModalLog.startedAt)} - {detailModalLog.endedAt ? formatTime(detailModalLog.endedAt) : 'Đang xảy ra'} ({detailModalLog.durationMinutes} phút)
+              <div className="col-span-2 space-y-0.5 pt-2 border-t border-slate-800/80">
+                <span className="text-[11px] text-slate-400 uppercase font-medium">Thời gian sự cố</span>
+                <p className="font-mono font-semibold text-slate-200">
+                  {formatTime(detailModalLog.startedAt)} - {detailModalLog.endedAt ? formatTime(detailModalLog.endedAt) : 'Đang tiếp diễn'} ({detailModalLog.durationMinutes} phút)
                 </p>
               </div>
 
-              <div className="col-span-2 sm:col-span-4">
-                <span className="text-[10px] text-slate-400 uppercase">Mô tả hiện trường</span>
-                <p className="text-slate-300 mt-0.5 italic bg-slate-900/60 p-2 rounded border border-slate-700/50">
-                  {detailModalLog.description || detailModalLog.note || 'Không có mô tả thêm.'}
-                </p>
-              </div>
+              {(detailModalLog.description || detailModalLog.note) && (
+                <div className="col-span-2 sm:col-span-4 space-y-0.5 pt-2 border-t border-slate-800/80">
+                  <span className="text-[11px] text-slate-400 uppercase font-medium">Mô tả hiện trường</span>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {detailModalLog.description || detailModalLog.note}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Child Impacts Section */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Activity className="h-3.5 w-3.5" />
-                  <span>Các Khoảng Ảnh Hưởng Vận Hành Được Xác Nhận ({detailModalLog.impacts?.length || 0})</span>
-                </h4>
-              </div>
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                <Activity className="h-4 w-4 text-orange-400" />
+                <span>Các khoảng ảnh hưởng vận hành ({detailModalLog.impacts?.length || 0})</span>
+              </h4>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {(detailModalLog.impacts || []).map((imp) => {
                   const badge = getImpactStatusBadge(imp.confirmationStatus);
                   const isPendingReview =
@@ -1904,23 +2058,25 @@ export function LossModule() {
                   return (
                     <div
                       key={imp.impactId}
-                      className="rounded-xl border border-slate-700 bg-slate-900/90 p-3 space-y-2"
+                      className="rounded-lg border border-slate-800 bg-slate-950/70 p-3.5 space-y-2.5"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-xs">{getImpactLabel(imp.impactType)}</span>
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded border font-semibold ${badge.badgeClass}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-white text-xs">{getImpactLabel(imp.impactType)}</span>
+                          <span className={`text-[11px] px-2 py-0.5 rounded border font-medium ${badge.badgeClass}`}>
                             {badge.label}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           {imp.convertedLossMinutes !== null ? (
-                            <span className="font-mono font-black text-rose-400 text-sm">
+                            <span className="font-mono font-bold tabular-nums text-rose-400 text-sm bg-rose-950/40 px-2 py-0.5 rounded border border-rose-800/40">
                               {imp.convertedLossMinutes}m Loss quy đổi
                             </span>
                           ) : (
-                            <span className="text-purple-300 font-bold text-xs">Chưa đủ dữ liệu</span>
+                            <span className="text-amber-300 font-medium text-xs bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
+                              Chưa đủ dữ liệu
+                            </span>
                           )}
 
                           {isPendingReview && (
@@ -1930,7 +2086,7 @@ export function LossModule() {
                                 setQuickConfirmImpactId(imp.impactId);
                                 setQuickConfirmPercent(imp.impactPercent || 50);
                               }}
-                              className="rounded bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 text-[10px] font-bold cursor-pointer"
+                              className="rounded bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-semibold cursor-pointer transition-colors"
                             >
                               Xác nhận %
                             </button>
@@ -1938,70 +2094,72 @@ export function LossModule() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-400 bg-slate-950/60 p-2 rounded">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-400 bg-slate-900/60 p-2.5 rounded">
                         <div>
-                          <span>Phạm vi:</span> <strong className="text-slate-200">{imp.impactScope}</strong>
+                          <span>Phạm vi:</span> <strong className="text-slate-200 ml-1">{imp.impactScope}</strong>
                         </div>
                         <div>
-                          <span>Công đoạn:</span> <strong className="text-slate-200">{imp.affectedStage}</strong>
+                          <span>Công đoạn:</span> <strong className="text-slate-200 ml-1">{imp.affectedStage}</strong>
                         </div>
                         <div>
-                          <span>Mức độ:</span> <strong className="text-amber-300">{imp.impactPercent !== null ? `${imp.impactPercent}%` : 'Chưa xác định'}</strong>
+                          <span>Mức độ:</span> <strong className="text-amber-300 ml-1">{imp.impactPercent !== null ? `${imp.impactPercent}%` : 'Chưa định %'}</strong>
                         </div>
                         <div>
-                          <span>Thời gian:</span> <strong className="text-slate-200">{formatTime(imp.impactStartedAt)} - {imp.impactEndedAt ? formatTime(imp.impactEndedAt) : 'Đang tiếp diễn'}</strong>
+                          <span>Thời gian:</span> <strong className="text-slate-200 ml-1">{formatTime(imp.impactStartedAt)} - {imp.impactEndedAt ? formatTime(imp.impactEndedAt) : 'Đang tiếp diễn'}</strong>
                         </div>
                       </div>
 
                       {imp.note && (
-                        <p className="text-[10px] text-slate-400 italic">
-                          Căn cứ: &quot;{imp.note}&quot;
+                        <p className="text-xs text-slate-400 italic">
+                          Căn cứ xác nhận: &quot;{imp.note}&quot;
                         </p>
                       )}
 
                       {/* Quick Confirm Box */}
                       {quickConfirmImpactId === imp.impactId && (
-                        <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/30 p-2.5 space-y-2 text-xs">
+                        <div className="rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-3 space-y-2.5 text-xs">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-emerald-300">Xác nhận mức độ ảnh hưởng thực tế:</span>
+                            <span className="font-semibold text-emerald-300">Xác nhận mức độ ảnh hưởng thực tế:</span>
                             <button
                               type="button"
                               onClick={() => setQuickConfirmImpactId(null)}
-                              className="text-slate-400 hover:text-white text-xs"
+                              className="text-slate-400 hover:text-white text-xs p-1"
                             >
                               ✕
                             </button>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5">
                               {QUICK_PERCENTS.map((p) => (
                                 <button
                                   key={p}
                                   type="button"
                                   onClick={() => setQuickConfirmPercent(p)}
-                                  className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                  className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer ${
                                     quickConfirmPercent === p
-                                      ? 'bg-emerald-400 text-slate-950'
-                                      : 'bg-slate-800 text-slate-300'
+                                      ? 'bg-emerald-500 text-slate-950 font-bold'
+                                      : 'bg-slate-800 text-slate-300 hover:text-white'
                                   }`}
                                 >
                                   {p}%
                                 </button>
                               ))}
                             </div>
-                            <input
-                              type="number"
-                              min={1}
-                              max={100}
-                              value={quickConfirmPercent}
-                              onChange={(e) => setQuickConfirmPercent(Number(e.target.value))}
-                              className="w-14 rounded border border-slate-700 bg-slate-800 p-1 text-center text-white font-mono"
-                            />
-                            <span className="text-slate-400">%</span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={quickConfirmPercent}
+                                onChange={(e) => setQuickConfirmPercent(Number(e.target.value))}
+                                className="w-16 rounded border border-slate-700 bg-slate-800 p-1.5 text-center text-white font-mono text-xs"
+                              />
+                              <span className="text-slate-400">%</span>
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleQuickConfirmImpact(detailModalLog.id, imp.impactId)}
-                              className="ml-auto rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3 py-1 cursor-pointer"
+                              className="ml-auto rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-1.5 text-xs cursor-pointer transition-colors"
                             >
                               Lưu xác nhận
                             </button>
@@ -2015,24 +2173,24 @@ export function LossModule() {
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-slate-800 pt-3 flex items-center justify-between">
+            <div className="border-t border-slate-800 pt-3.5 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => handleDeleteLog(detailModalLog.id, detailModalLog.downtimeReason)}
-                className="flex items-center gap-1.5 rounded-lg border border-rose-500/40 bg-rose-950/40 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-900/60 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 rounded-lg border border-rose-800/50 bg-rose-950/20 px-3.5 py-2 text-xs font-medium text-rose-300 hover:bg-rose-900/40 transition-colors cursor-pointer"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-4 w-4" />
                 <span>Xóa sự cố</span>
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {detailModalLog.endedAt === null && (
                   <button
                     type="button"
                     onClick={() => handleOpenEndModal(detailModalLog.id)}
-                    className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white transition-colors cursor-pointer"
                   >
-                    <Square className="h-3.5 w-3.5 fill-white" />
+                    <Square className="h-4 w-4 fill-white" />
                     <span>Đóng sự cố</span>
                   </button>
                 )}
@@ -2042,7 +2200,7 @@ export function LossModule() {
                     setDetailModalLog(null);
                     setQuickConfirmImpactId(null);
                   }}
-                  className="rounded-lg bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 cursor-pointer"
+                  className="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
                 >
                   Đóng
                 </button>
@@ -2057,36 +2215,38 @@ export function LossModule() {
       {/* ========================================================================= */}
       {endingLogId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl p-5 space-y-4 text-xs">
-            <h3 className="font-bold text-white text-base">Xác nhận Kết Thúc Sự Cố</h3>
-            <p className="text-slate-400">
-              Nhập thời điểm kết thúc sự cố (các khoảng ảnh hưởng đang mở sẽ tự động được đóng và tính toán Loss quy đổi):
-            </p>
-
+          <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 shadow-2xl p-6 space-y-4 text-xs">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1">Thời gian kết thúc</label>
+              <h3 className="font-bold text-white text-base tracking-tight">Xác nhận kết thúc sự cố</h3>
+              <p className="text-slate-400 mt-1 leading-relaxed">
+                Nhập thời điểm máy hoạt động trở lại bình thường. Hệ thống sẽ tự động chốt thời lượng sự cố và tính toán Loss quy đổi theo tỷ lệ ảnh hưởng:
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">Thời gian kết thúc sự cố</label>
               <input
                 type="datetime-local"
                 value={endDateTimeInput}
                 onChange={(e) => setEndDateTimeInput(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 p-2.5 text-white font-mono focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 px-3 text-sm text-white font-mono focus:border-orange-500 focus:outline-none"
               />
             </div>
 
-            <div className="border-t border-slate-800 pt-3 flex justify-end gap-2">
+            <div className="border-t border-slate-800 pt-3.5 flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setEndingLogId(null)}
-                className="rounded-lg border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800 cursor-pointer"
+                className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Hủy
               </button>
               <button
                 type="button"
                 onClick={handleConfirmEndLoss}
-                className="rounded-lg bg-emerald-600 px-4 py-1.5 font-bold text-white hover:bg-emerald-500 cursor-pointer"
+                className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
               >
-                Đóng sự cố & Cập nhật Loss
+                Chốt kết thúc & Cập nhật Loss
               </button>
             </div>
           </div>

@@ -274,52 +274,50 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
   return (
     <div className="space-y-6">
       {/* Dashboard Top Title */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <LayoutDashboard className="h-5 w-5 text-orange-400" />
-            <h1 className="text-lg font-black text-white">Dashboard Điều Hành Shopfloor CBTO</h1>
+          <div className="flex items-center gap-2.5">
+            <LayoutDashboard className="h-5 w-5 text-orange-500" />
+            <h1 className="text-lg font-bold text-white tracking-tight">
+              Dashboard Điều Hành Shopfloor CBTO
+            </h1>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Giám sát 4 thông tin cốt lõi: <strong>Sản lượng — Loss quy đổi — Runtime — CIP</strong> (Ngày {formatDateVN(selectedProductionDate)})
+          <p className="text-xs text-slate-400 mt-1">
+            Giám sát 4 chỉ số cốt lõi: Sản lượng · Loss quy đổi theo phạm vi · Runtime · Chu kỳ CIP (Ngày {formatDateVN(selectedProductionDate)})
           </p>
         </div>
 
         <div className="flex items-center gap-2 text-xs">
-          <span className="rounded bg-slate-800 px-2.5 py-1 text-slate-300 border border-slate-700 font-medium">
-            Mô hình: Ảnh hưởng vận hành CBTO (AC-06/07)
+          <span className="text-xs font-medium text-slate-300 bg-slate-800/90 px-3 py-1.5 rounded-lg border border-slate-700">
+            Mô hình: Tách biệt Nguồn & Ảnh hưởng Vận hành
           </span>
         </div>
       </div>
 
-      {/* Alert Center */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Alert Center - Spacious, ergonomic clickable status cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Alert 1: Pending AM */}
         <div
           onClick={() => onNavigateToTab('record', 'am')}
-          className={`rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] ${
+          className={`rounded-xl border p-4 cursor-pointer transition-colors ${
             pendingAmEquipments.length > 0
-              ? 'border-rose-500/50 bg-rose-950/20'
-              : 'border-slate-800 bg-slate-900/40'
+              ? 'border-rose-900/60 bg-rose-950/20 hover:bg-rose-950/30'
+              : 'border-slate-800 bg-slate-900/70 hover:bg-slate-900'
           }`}
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-semibold">Bảo Trì AM Ca Này</span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                pendingAmEquipments.length > 0 ? 'bg-rose-500/20 text-rose-400' : 'text-slate-500'
-              }`}
-            >
+            <span className="text-slate-300 font-semibold">Bảo trì AM ca này</span>
+            <span className="text-[11px] text-slate-400 font-mono">
               Checklist Ca
             </span>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-rose-400 font-mono">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-rose-400 font-mono tabular-nums">
               {pendingAmEquipments.length}
             </span>
             <span className="text-xs text-slate-400">thiết bị chưa kiểm</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400 truncate">
+          <p className="mt-1 text-xs text-slate-400 truncate">
             {pendingAmEquipments.length > 0
               ? `${pendingAmEquipments[0].lineCode} - ${pendingAmEquipments[0].eqName}`
               : 'Đã hoàn tất AM toàn bộ thiết bị'}
@@ -329,94 +327,82 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
         {/* Alert 2: High Runtime > 90% */}
         <div
           onClick={() => onNavigateToTab('runtime')}
-          className={`rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] ${
+          className={`rounded-xl border p-4 cursor-pointer transition-colors ${
             highRuntimeLines.length > 0
-              ? 'border-orange-500/50 bg-orange-950/20'
-              : 'border-slate-800 bg-slate-900/40'
+              ? 'border-orange-900/60 bg-orange-950/20 hover:bg-orange-950/30'
+              : 'border-slate-800 bg-slate-900/70 hover:bg-slate-900'
           }`}
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-semibold">Cảnh Báo Runtime</span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                highRuntimeLines.length > 0 ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500'
-              }`}
-            >
-              Mốc &gt; 90% CIP
+            <span className="text-slate-300 font-semibold">Cảnh báo Runtime</span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              Ngưỡng &gt; 90%
             </span>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-orange-400 font-mono">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-orange-400 font-mono tabular-nums">
               {highRuntimeLines.length}
             </span>
-            <span className="text-xs text-slate-400">line cận kề hạn CIP</span>
+            <span className="text-xs text-slate-400">line cận hạn CIP</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400 truncate">
+          <p className="mt-1 text-xs text-slate-400 truncate">
             {highRuntimeLines.length > 0
-              ? `${highRuntimeLines[0].line?.code}: ${highRuntimeLines[0].status.remainingHours}h còn lại`
-              : 'Chưa có line nào vượt ngưỡng 90%'}
+              ? `${highRuntimeLines[0].line?.code}: còn ${highRuntimeLines[0].status.remainingHours}h`
+              : 'Tất cả dây chuyền dưới ngưỡng 90%'}
           </p>
         </div>
 
         {/* Alert 3: Unread Abnormalities */}
         <div
           onClick={() => onNavigateToTab('record', 'abnormal')}
-          className={`rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] ${
+          className={`rounded-xl border p-4 cursor-pointer transition-colors ${
             unreadAbnormals.length > 0
-              ? 'border-amber-500/50 bg-amber-950/20'
-              : 'border-slate-800 bg-slate-900/40'
+              ? 'border-amber-900/60 bg-amber-950/20 hover:bg-amber-950/30'
+              : 'border-slate-800 bg-slate-900/70 hover:bg-slate-900'
           }`}
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-semibold">Bất Thường Mới</span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                unreadAbnormals.length > 0 ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500'
-              }`}
-            >
-              Chưa Xác Nhận
+            <span className="text-slate-300 font-semibold">Bất thường hiện trường</span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              Chưa xác nhận
             </span>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-amber-300 font-mono">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-amber-300 font-mono tabular-nums">
               {unreadAbnormals.length}
             </span>
-            <span className="text-xs text-slate-400">phát hiện hiện trường</span>
+            <span className="text-xs text-slate-400">sự việc ghi nhận</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400 truncate">
-            {unreadAbnormals.length > 0 ? unreadAbnormals[0].description : 'Hiện trường ổn định'}
+          <p className="mt-1 text-xs text-slate-400 truncate">
+            {unreadAbnormals.length > 0 ? unreadAbnormals[0].description : 'Hiện trường vận hành ổn định'}
           </p>
         </div>
 
         {/* Alert 4: Đang CIP / Post-CIP */}
         <div
           onClick={() => onNavigateToTab('runtime')}
-          className={`rounded-xl border p-3.5 cursor-pointer transition-all hover:scale-[1.01] ${
+          className={`rounded-xl border p-4 cursor-pointer transition-colors ${
             activeCips.length > 0
-              ? 'border-teal-500/50 bg-teal-950/20'
-              : 'border-slate-800 bg-slate-900/40'
+              ? 'border-teal-900/60 bg-teal-950/20 hover:bg-teal-950/30'
+              : 'border-slate-800 bg-slate-900/70 hover:bg-slate-900'
           }`}
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-semibold">Tiến Trình CIP</span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                activeCips.length > 0 ? 'bg-teal-500/20 text-teal-400' : 'text-slate-500'
-              }`}
-            >
-              Vệ sinh & Test
+            <span className="text-slate-300 font-semibold">Tiến trình CIP / Tiệt trùng</span>
+            <span className="text-[11px] text-slate-400 font-mono">
+              Vệ sinh trạm
             </span>
           </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-teal-400 font-mono">
+          <div className="mt-2.5 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-teal-400 font-mono tabular-nums">
               {activeCips.length}
             </span>
-            <span className="text-xs text-slate-400">line đang CIP / Post-CIP</span>
+            <span className="text-xs text-slate-400">line đang vệ sinh</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400 truncate">
+          <p className="mt-1 text-xs text-slate-400 truncate">
             {activeCips.length > 0
               ? `${activeCips[0].lineId}: ${activeCips[0].status}`
-              : 'Tất cả line sẵn sàng sản xuất'}
+              : 'Các line sẵn sàng phục vụ sản xuất'}
           </p>
         </div>
       </div>
@@ -426,25 +412,25 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
         {/* Card 1: Sản lượng hôm nay */}
         <div
           onClick={() => onNavigateToTab('more', 'progress')}
-          className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg hover:border-slate-700 transition-all cursor-pointer group"
+          className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 hover:border-slate-700 transition-colors cursor-pointer group space-y-3"
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
               <TrendingUp className="h-4 w-4 text-emerald-400" />
-              <span>SẢN LƯỢNG HÔM NAY</span>
+              <span>Sản lượng thực tế</span>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
           </div>
 
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-white font-mono">{totalActualTons.toFixed(1)}</span>
-            <span className="text-xs text-slate-400">/ {totalPlannedTons.toFixed(1)} Tấn</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white font-mono tabular-nums">{totalActualTons.toFixed(1)}</span>
+            <span className="text-xs text-slate-400 font-mono tabular-nums">/ {totalPlannedTons.toFixed(1)} Tấn</span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between text-xs pt-2 border-t border-slate-800">
-            <span className="text-slate-400">Tỷ lệ hoàn thành:</span>
+          <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-800">
+            <span className="text-slate-400">Hoàn thành:</span>
             <span
-              className={`font-mono font-bold ${
+              className={`font-mono font-bold tabular-nums ${
                 prodCompletionRate === null
                   ? 'text-slate-400'
                   : prodCompletionRate >= 80
@@ -452,7 +438,7 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
                   : 'text-amber-400'
               }`}
             >
-              {prodCompletionRate !== null ? `${prodCompletionRate}%` : 'Không áp dụng'}
+              {prodCompletionRate !== null ? `${prodCompletionRate}%` : 'Chưa có kế hoạch'}
             </span>
           </div>
         </div>
@@ -460,66 +446,66 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
         {/* Card 2: Loss Hôm Nay Theo Phạm Vi (Anti-Duplication Principle) */}
         <div
           onClick={() => onNavigateToTab('record', 'loss')}
-          className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg hover:border-slate-700 transition-all cursor-pointer group"
+          className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 hover:border-slate-700 transition-colors cursor-pointer group space-y-3"
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
               <ClockAlert className="h-4 w-4 text-rose-400" />
-              <span>LOSS QUY ĐỔI THEO PHẠM VI</span>
+              <span>Loss quy đổi theo phạm vi</span>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-1 text-center">
-            <div className="bg-sky-950/40 p-1.5 rounded border border-sky-800/40">
-              <span className="text-[10px] text-sky-400 uppercase font-semibold block">Nấu</span>
-              <span className="text-lg font-black text-white font-mono">
+          <div className="grid grid-cols-3 gap-1.5 text-center">
+            <div className="bg-slate-950/60 p-2 rounded border border-slate-800">
+              <span className="text-[11px] text-sky-400 font-medium block">Nấu</span>
+              <span className="text-base font-bold text-white font-mono tabular-nums">
                 {scopeMetrics['Nấu'].totalConvertedLossMinutes}m
               </span>
             </div>
-            <div className="bg-teal-950/40 p-1.5 rounded border border-teal-800/40">
-              <span className="text-[10px] text-teal-400 uppercase font-semibold block">Cấp tương</span>
-              <span className="text-lg font-black text-white font-mono">
+            <div className="bg-slate-950/60 p-2 rounded border border-slate-800">
+              <span className="text-[11px] text-teal-400 font-medium block">Cấp tương</span>
+              <span className="text-base font-bold text-white font-mono tabular-nums">
                 {scopeMetrics['Cấp tương'].totalConvertedLossMinutes}m
               </span>
             </div>
-            <div className="bg-amber-950/40 p-1.5 rounded border border-amber-800/40">
-              <span className="text-[10px] text-amber-400 uppercase font-semibold block">Đóng gói</span>
-              <span className="text-lg font-black text-white font-mono">
+            <div className="bg-slate-950/60 p-2 rounded border border-slate-800">
+              <span className="text-[11px] text-amber-400 font-medium block">Đóng gói</span>
+              <span className="text-base font-bold text-white font-mono tabular-nums">
                 {scopeMetrics['Đóng gói'].totalConvertedLossMinutes}m
               </span>
             </div>
           </div>
 
-          <div className="mt-2 flex items-center justify-between text-[11px] pt-2 border-t border-slate-800 text-slate-400">
+          <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-800 text-slate-400">
             <span>Nguyên tắc:</span>
-            <span className="text-amber-300 font-semibold">Tách biệt, không gộp mù quáng</span>
+            <span className="text-slate-300 font-medium">Tách biệt 3 phạm vi</span>
           </div>
         </div>
 
         {/* Card 3: Runtime hiện tại */}
         <div
           onClick={() => onNavigateToTab('runtime')}
-          className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg hover:border-slate-700 transition-all cursor-pointer group"
+          className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 hover:border-slate-700 transition-colors cursor-pointer group space-y-3"
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
               <Flame className="h-4 w-4 text-orange-400" />
-              <span>RUNTIME HIỆN TẠI</span>
+              <span>Runtime vận hành</span>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
           </div>
 
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-white font-mono">
-              {runtimes.filter((r) => r.status === 'RUNNING').length} Line
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-white font-mono tabular-nums">
+              {runtimes.filter((r) => r.status === 'RUNNING').length}
             </span>
-            <span className="text-xs text-slate-400">đang chạy liên tục</span>
+            <span className="text-xs text-slate-400">Line đang chạy</span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between text-xs pt-2 border-t border-slate-800">
+          <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-800">
             <span className="text-slate-400">Mốc cao nhất:</span>
-            <span className="text-orange-400 font-mono font-bold">
+            <span className="text-orange-400 font-mono font-semibold tabular-nums">
               {highRuntimeLines.length > 0 ? `${highRuntimeLines[0].status.usagePercent}%` : '< 80%'}
             </span>
           </div>
@@ -528,84 +514,85 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
         {/* Card 4: CIP hiện tại */}
         <div
           onClick={() => onNavigateToTab('runtime')}
-          className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-lg hover:border-slate-700 transition-all cursor-pointer group"
+          className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 hover:border-slate-700 transition-colors cursor-pointer group space-y-3"
         >
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
               <RotateCw className="h-4 w-4 text-teal-400" />
-              <span>CIP & POST-CIP</span>
+              <span>Trạng thái CIP</span>
             </div>
             <ChevronRight className="h-4 w-4 text-slate-500 group-hover:text-white transition-colors" />
           </div>
 
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-teal-400 font-mono">
-              {activeCips.length > 0 ? activeCips[0].lineId : 'Line 3 Sẵn sàng'}
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-teal-400 font-mono tabular-nums">
+              {activeCips.length > 0 ? activeCips.length : '0'}
             </span>
+            <span className="text-xs text-slate-400">trạm đang CIP</span>
           </div>
 
-          <div className="mt-2 flex items-center justify-between text-xs pt-2 border-t border-slate-800">
-            <span className="text-slate-400">Post-CIP 60 phút:</span>
-            <span className="text-teal-300 font-semibold font-mono">
-              {activeCips.length > 0 ? activeCips[0].status : 'Hoàn tất'}
+          <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-800">
+            <span className="text-slate-400">Sẵn sàng:</span>
+            <span className="text-teal-300 font-medium">
+              {activeCips.length === 0 ? 'Toàn bộ xưởng' : 'Một phần'}
             </span>
           </div>
         </div>
       </div>
 
       {/* SPECIFIC OPERATIONAL IMPACT STATS ROW */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+      <div className="rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-3.5">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-            <Activity className="h-4 w-4 text-amber-400" />
-            <span>Chỉ Số Vận Hành Trọng Yếu Hiện Trường (Change Request)</span>
+            <Activity className="h-4 w-4 text-orange-400" />
+            <span>Chỉ Số Vận Hành Trọng Yếu Hiện Trường</span>
           </div>
-          <span className="text-[11px] text-slate-400">Truy nguyên từ timestamp & mức độ %</span>
+          <span className="text-xs text-slate-400">Truy nguyên từ timestamp & mức độ %</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[11px]">Tổng Giờ Dừng Nấu (100%)</span>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-xl font-black text-rose-400 font-mono">
+          <div className="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-1">
+            <span className="text-slate-400 block text-xs">Tổng giờ dừng nấu (100%)</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-rose-400 font-mono tabular-nums">
                 {operationalKpiStats.stopCookMinutes}
               </span>
-              <span className="text-slate-400 text-[11px]">phút</span>
+              <span className="text-slate-400 text-xs">phút</span>
             </div>
-            <span className="text-[10px] text-slate-500">Dừng toàn bộ cụm nồi</span>
+            <span className="text-[11px] text-slate-500">Dừng toàn bộ cụm nồi</span>
           </div>
 
-          <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[11px]">Tổng Giờ Giảm Năng Lực Nấu</span>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-xl font-black text-amber-400 font-mono">
+          <div className="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-1">
+            <span className="text-slate-400 block text-xs">Tổng giờ giảm năng lực nấu</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-amber-400 font-mono tabular-nums">
                 {operationalKpiStats.reduceCookMinutes}
               </span>
-              <span className="text-slate-400 text-[11px]">phút</span>
+              <span className="text-slate-400 text-xs">phút</span>
             </div>
-            <span className="text-[10px] text-slate-500">Giảm tải công suất nấu</span>
+            <span className="text-[11px] text-slate-500">Giảm tải công suất nấu</span>
           </div>
 
-          <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[11px]">Tổng Giờ Dừng Cấp Tương ĐG</span>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-xl font-black text-teal-400 font-mono">
+          <div className="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-1">
+            <span className="text-slate-400 block text-xs">Tổng giờ dừng cấp tương ĐG</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-teal-400 font-mono tabular-nums">
                 {operationalKpiStats.stopFeedPackingMinutes}
               </span>
-              <span className="text-slate-400 text-[11px]">phút</span>
+              <span className="text-slate-400 text-xs">phút</span>
             </div>
-            <span className="text-[10px] text-slate-500">Không tự suy ra Dừng ĐG</span>
+            <span className="text-[11px] text-slate-500">Không tự suy ra Dừng ĐG</span>
           </div>
 
-          <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/60">
-            <span className="text-slate-400 block text-[11px]">Thời Gian Ứ Bồn Làm Nguội</span>
-            <div className="mt-1 flex items-baseline gap-1">
-              <span className="text-xl font-black text-purple-400 font-mono">
+          <div className="bg-slate-950/60 p-3.5 rounded-lg border border-slate-800 space-y-1">
+            <span className="text-slate-400 block text-xs">Thời gian ứ bồn làm nguội</span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-purple-400 font-mono tabular-nums">
                 {operationalKpiStats.coolingCongestionDuration}
               </span>
-              <span className="text-slate-400 text-[11px]">phút tồn tại</span>
+              <span className="text-slate-400 text-xs">phút tồn tại</span>
             </div>
-            <span className="text-[10px] text-purple-300">
+            <span className="text-[11px] text-purple-300">
               {operationalKpiStats.hasInsufficientCongestion ? 'Có sự kiện Chưa đủ dữ liệu' : 'Đã xác nhận %'}
             </span>
           </div>
@@ -615,41 +602,41 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
       {/* DUAL PARETO & TOP THIẾT BỊ BẤT THƯỜNG */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Dual Pareto Chart */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <div className="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900/90 p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
             <div>
               <h3 className="font-bold text-white text-sm flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-orange-400" />
-                Biểu Đồ Phân Tích Pareto Shopfloor CBTO
+                Biểu đồ phân tích Pareto Shopfloor CBTO
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 mt-0.5">
                 Hai góc nhìn độc lập: Nhóm sự cố gốc vs. Tổn thất vận hành thực tế (Loss quy đổi)
               </p>
             </div>
 
-            {/* Toggle Switch between Cause and Impact */}
-            <div className="flex items-center gap-1 rounded-xl bg-slate-800 p-1 border border-slate-700 self-start sm:self-center">
+            {/* Segmented Control */}
+            <div className="flex items-center gap-1 rounded-lg bg-slate-800/90 p-1 border border-slate-700/70 self-start sm:self-center">
               <button
                 type="button"
                 onClick={() => setParetoView('IMPACT')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                   paretoView === 'IMPACT'
-                    ? 'bg-amber-500 text-slate-950 shadow font-black'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-orange-600 text-white shadow-sm'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
                 }`}
               >
-                Pareto Ảnh Hưởng
+                Pareto Ảnh hưởng
               </button>
               <button
                 type="button"
                 onClick={() => setParetoView('CAUSE')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
                   paretoView === 'CAUSE'
-                    ? 'bg-amber-500 text-slate-950 shadow font-black'
-                    : 'text-slate-400 hover:text-white'
+                    ? 'bg-orange-600 text-white shadow-sm'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
                 }`}
               >
-                Pareto Nguyên Nhân (9 Nhóm)
+                Pareto Nguyên nhân
               </button>
             </div>
           </div>
