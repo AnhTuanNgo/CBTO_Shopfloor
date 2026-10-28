@@ -124,17 +124,9 @@ export function HandoverModule() {
 
     createHandover({
       lineId: selectedLineId,
-      productionDate: selectedProductionDate,
       outgoingShiftId: selectedShiftId,
       incomingShiftId: incomingShift,
       content: handoverNote.trim(),
-      snapshot: {
-        activeAbnormalitiesCount: activeAbnormals.length,
-        ongoingLossCount: ongoingLosses.length,
-        remainingRuntimeHours: remainingHours,
-        skuName: currentSku?.name || 'Chưa chạy SKU',
-        cipStatus: activeCip?.status || 'READY',
-      },
       pendingTasks: tasks,
     });
 

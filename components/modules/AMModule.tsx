@@ -121,12 +121,19 @@ export function AMModule() {
       return;
     }
 
+    const hasFailOrTag = formItems.some((i) => i.result === 'PASS_TAG' || i.result === 'FAIL');
+
     saveAMChecklist({
+      plantId: 'CBTO_PLANT',
       lineId: selectedLineId,
       shiftId: selectedShiftId,
       productionDate: selectedProductionDate,
       equipmentId: targetEquipmentId,
       items: formItems,
+      status: 'COMPLETED',
+      hasFailOrTag,
+      performedBy: currentUser.uid,
+      performedByName: currentUser.displayName,
     });
 
     setIsModalOpen(false);

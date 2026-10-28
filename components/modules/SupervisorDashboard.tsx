@@ -196,7 +196,7 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
         stopFeedPackingMinutes += minutes;
       } else if (imp.impactType === 'COOLING_BUFFER_CONGESTION') {
         coolingCongestionDuration += m.durationMinutes;
-        if (m.isInsufficientData) {
+        if (m.status === 'INSUFFICIENT_DATA' || m.convertedLossMinutes === null) {
           hasInsufficientCongestion = true;
         }
       }
@@ -230,18 +230,26 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
       .sort((a, b) => b.minutes - a.minutes);
 
     const totalMinutes = entries.reduce((acc, cur) => acc + cur.minutes, 0);
+    const result: Array<{
+      type: ImpactType;
+      label: string;
+      minutes: number;
+      percent: number;
+      cumulativePercent: number;
+    }> = [];
     let runningSum = 0;
 
-    return entries.map((item) => {
+    for (const item of entries) {
       runningSum += item.minutes;
       const percent = totalMinutes > 0 ? +((item.minutes / totalMinutes) * 100).toFixed(1) : 0;
       const cumulativePercent = totalMinutes > 0 ? +((runningSum / totalMinutes) * 100).toFixed(1) : 0;
-      return {
+      result.push({
         ...item,
         percent,
         cumulativePercent,
-      };
-    });
+      });
+    }
+    return result;
   }, [allTodayImpacts, nowMs]);
 
   // Pareto by Cause Group
@@ -272,18 +280,26 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
       .sort((a, b) => b.minutes - a.minutes);
 
     const totalMinutes = entries.reduce((acc, cur) => acc + cur.minutes, 0);
+    const result: Array<{
+      group: LossGroup;
+      label: string;
+      minutes: number;
+      percent: number;
+      cumulativePercent: number;
+    }> = [];
     let runningSum = 0;
 
-    return entries.map((item) => {
+    for (const item of entries) {
       runningSum += item.minutes;
       const percent = totalMinutes > 0 ? +((item.minutes / totalMinutes) * 100).toFixed(1) : 0;
       const cumulativePercent = totalMinutes > 0 ? +((runningSum / totalMinutes) * 100).toFixed(1) : 0;
-      return {
+      result.push({
         ...item,
         percent,
         cumulativePercent,
-      };
-    });
+      });
+    }
+    return result;
   }, [todayLogs]);
 
   // Top equipment failures

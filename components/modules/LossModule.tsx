@@ -241,51 +241,45 @@ export function LossModule() {
   const [formDescription, setFormDescription] = useState('');
   const [formNote, setFormNote] = useState('');
 
-  // Event Time
-  const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
-  const curHour = String(now.getHours()).padStart(2, '0');
-  const curMin = String(now.getMinutes()).padStart(2, '0');
+  // Event Time Helpers
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const toLocalInputValue = (d: Date = new Date()): string => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
 
-  const [startDay, setStartDay] = useState(todayStr);
-  const [startHour, setStartHour] = useState(curHour);
-  const [startMin, setStartMin] = useState(curMin);
+  const toSafeIso = (val: string, fallback: string | null = null): string | null => {
+    if (!val || !val.trim()) return fallback;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return fallback;
+    return d.toISOString();
+  };
 
+  const [startDateTime, setStartDateTime] = useState<string>(() => toLocalInputValue(new Date()));
+  const [endDateTime, setEndDateTime] = useState<string>(() => toLocalInputValue(new Date()));
   const [isOngoing, setIsOngoing] = useState(false);
-  const [endDay, setEndDay] = useState(todayStr);
-  const [endHour, setEndHour] = useState(curHour);
-  const [endMin, setEndMin] = useState(curMin);
 
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
-  // Event Duration
+  // Event Duration (minutes)
   const calculatedDuration = useMemo(() => {
-    if (isOngoing) return 0;
-    const startStr = `${startDay}T${startHour}:${startMin}:00`;
-    const endStr = `${endDay}T${endHour}:${endMin}:00`;
-    const s = new Date(startStr).getTime();
-    const e = new Date(endStr).getTime();
+    if (isOngoing || !startDateTime || !endDateTime) return 0;
+    const s = new Date(startDateTime).getTime();
+    const e = new Date(endDateTime).getTime();
     if (isNaN(s) || isNaN(e) || e < s) return 0;
     return Math.max(0, Math.round((e - s) / 60000));
-  }, [isOngoing, startDay, startHour, startMin, endDay, endHour, endMin]);
+  }, [isOngoing, startDateTime, endDateTime]);
 
   const startIsoString = useMemo(() => {
-    try {
-      return new Date(`${startDay}T${startHour}:${startMin}:00`).toISOString();
-    } catch {
-      return new Date().toISOString();
-    }
-  }, [startDay, startHour, startMin]);
+    const iso = toSafeIso(startDateTime);
+    return iso || new Date().toISOString();
+  }, [startDateTime]);
 
   const endIsoString = useMemo(() => {
     if (isOngoing) return null;
-    try {
-      return new Date(`${endDay}T${endHour}:${endMin}:00`).toISOString();
-    } catch {
-      return null;
-    }
-  }, [isOngoing, endDay, endHour, endMin]);
+    return toSafeIso(endDateTime);
+  }, [isOngoing, endDateTime]);
 
   // Section 5 Requirement: User actively chooses impact, not pre-filled with an assumed 50% confirmed capacity reduction!
   // Default to STOP_COOK for Nấu or STOP_PACKING for Đóng gói, but requires user review and selection
@@ -533,7 +527,8 @@ export function LossModule() {
 
   const handleConfirmEndLog = () => {
     if (!endingLogId) return;
-    const endIso = endDateTimeInput ? new Date(endDateTimeInput).toISOString() : new Date().toISOString();
+    const d = endDateTimeInput ? new Date(endDateTimeInput) : new Date();
+    const endIso = !isNaN(d.getTime()) ? d.toISOString() : new Date().toISOString();
     const res = endLossLog(endingLogId, endIso);
     if (!res.success) {
       setFormError(res.message || 'Lỗi khi kết thúc sự cố!');
@@ -835,16 +830,14 @@ export function LossModule() {
               <div className="col-span-1 sm:col-span-2 space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-bold text-gray-700">Thời điểm bắt đầu sự cố</label>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
                       onClick={() => {
-                        const now = new Date();
-                        const pad = (n: number) => n.toString().padStart(2, '0');
-                        setStartDay(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`);
-                        setStartHour(pad(now.getHours()));
-                        setStartMin(pad(now.getMinutes()));
-                        syncDraftTimestamps(now.toISOString(), isOngoing ? null : endIsoString);
+                        const nowVal = toLocalInputValue(new Date());
+                        setStartDateTime(nowVal);
+                        const iso = toSafeIso(nowVal);
+                        if (iso) syncDraftTimestamps(iso, isOngoing ? null : endIsoString);
                       }}
                       className="text-[11px] font-bold text-[#E31837] hover:underline px-1.5 py-0.5 rounded cursor-pointer"
                     >
@@ -854,54 +847,57 @@ export function LossModule() {
                     <button
                       type="button"
                       onClick={() => {
-                        const past = new Date(Date.now() - 30 * 60000);
-                        const pad = (n: number) => n.toString().padStart(2, '0');
-                        setStartDay(`${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}`);
-                        setStartHour(pad(past.getHours()));
-                        setStartMin(pad(past.getMinutes()));
-                        syncDraftTimestamps(past.toISOString(), isOngoing ? null : endIsoString);
+                        const pastVal = toLocalInputValue(new Date(Date.now() - 15 * 60000));
+                        setStartDateTime(pastVal);
+                        const iso = toSafeIso(pastVal);
+                        if (iso) syncDraftTimestamps(iso, isOngoing ? null : endIsoString);
                       }}
                       className="text-[11px] font-medium text-gray-600 hover:text-gray-900 px-1.5 py-0.5 rounded cursor-pointer"
                     >
-                      30p trước
+                      -15p
+                    </button>
+                    <span className="text-gray-300">·</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pastVal = toLocalInputValue(new Date(Date.now() - 30 * 60000));
+                        setStartDateTime(pastVal);
+                        const iso = toSafeIso(pastVal);
+                        if (iso) syncDraftTimestamps(iso, isOngoing ? null : endIsoString);
+                      }}
+                      className="text-[11px] font-medium text-gray-600 hover:text-gray-900 px-1.5 py-0.5 rounded cursor-pointer"
+                    >
+                      -30p
+                    </button>
+                    <span className="text-gray-300">·</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pastVal = toLocalInputValue(new Date(Date.now() - 60 * 60000));
+                        setStartDateTime(pastVal);
+                        const iso = toSafeIso(pastVal);
+                        if (iso) syncDraftTimestamps(iso, isOngoing ? null : endIsoString);
+                      }}
+                      className="text-[11px] font-medium text-gray-600 hover:text-gray-900 px-1.5 py-0.5 rounded cursor-pointer"
+                    >
+                      -1h
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    type="date"
-                    value={startDay}
-                    onChange={(e) => {
-                      setStartDay(e.target.value);
-                      const s = new Date(`${e.target.value}T${startHour}:${startMin}:00`).toISOString();
-                      syncDraftTimestamps(s, isOngoing ? null : endIsoString);
-                    }}
-                    className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={startHour}
-                    onChange={(e) => {
-                      setStartHour(e.target.value);
-                      const s = new Date(`${startDay}T${e.target.value}:${startMin}:00`).toISOString();
-                      syncDraftTimestamps(s, isOngoing ? null : endIsoString);
-                    }}
-                    placeholder="HH (0-23)"
-                    className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={startMin}
-                    onChange={(e) => {
-                      setStartMin(e.target.value);
-                      const s = new Date(`${startDay}T${startHour}:${e.target.value}:00`).toISOString();
-                      syncDraftTimestamps(s, isOngoing ? null : endIsoString);
-                    }}
-                    placeholder="MM (0-59)"
-                    className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
-                  />
-                </div>
+                <input
+                  type="datetime-local"
+                  value={startDateTime}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setStartDateTime(val);
+                    const iso = toSafeIso(val);
+                    if (iso) {
+                      syncDraftTimestamps(iso, isOngoing ? null : endIsoString);
+                    }
+                  }}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
+                />
               </div>
 
               {/* Thời điểm kết thúc sự cố */}
@@ -913,8 +909,9 @@ export function LossModule() {
                       type="checkbox"
                       checked={isOngoing}
                       onChange={(e) => {
-                        setIsOngoing(e.target.checked);
-                        syncDraftTimestamps(startIsoString, e.target.checked ? null : endIsoString);
+                        const checked = e.target.checked;
+                        setIsOngoing(checked);
+                        syncDraftTimestamps(startIsoString, checked ? null : endIsoString);
                       }}
                       className="rounded border-gray-300 text-[#E31837] focus:ring-[#E31837] cursor-pointer"
                     />
@@ -923,39 +920,34 @@ export function LossModule() {
                 </div>
 
                 {!isOngoing ? (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1.5">
                     <input
-                      type="date"
-                      value={endDay}
+                      type="datetime-local"
+                      value={endDateTime}
                       onChange={(e) => {
-                        setEndDay(e.target.value);
-                        const end = new Date(`${e.target.value}T${endHour}:${endMin}:00`).toISOString();
-                        syncDraftTimestamps(startIsoString, end);
+                        const val = e.target.value;
+                        setEndDateTime(val);
+                        const iso = toSafeIso(val);
+                        if (iso) {
+                          syncDraftTimestamps(startIsoString, iso);
+                        }
                       }}
-                      className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none"
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
                     />
-                    <input
-                      type="text"
-                      value={endHour}
-                      onChange={(e) => {
-                        setEndHour(e.target.value);
-                        const end = new Date(`${endDay}T${e.target.value}:${endMin}:00`).toISOString();
-                        syncDraftTimestamps(startIsoString, end);
-                      }}
-                      placeholder="HH (0-23)"
-                      className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
-                    />
-                    <input
-                      type="text"
-                      value={endMin}
-                      onChange={(e) => {
-                        setEndMin(e.target.value);
-                        const end = new Date(`${endDay}T${endHour}:${e.target.value}:00`).toISOString();
-                        syncDraftTimestamps(startIsoString, end);
-                      }}
-                      placeholder="MM (0-59)"
-                      className="rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-mono font-bold text-center text-gray-800 focus:border-[#E31837] focus:outline-none"
-                    />
+                    <div className="flex items-center justify-end gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nowVal = toLocalInputValue(new Date());
+                          setEndDateTime(nowVal);
+                          const iso = toSafeIso(nowVal);
+                          if (iso) syncDraftTimestamps(startIsoString, iso);
+                        }}
+                        className="text-[11px] font-bold text-[#E31837] hover:underline px-1 py-0.5 cursor-pointer"
+                      >
+                        Đặt bằng Hiện tại
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-xl border border-red-200 bg-red-50/50 py-2.5 px-4 text-center text-red-700 text-xs font-bold">
@@ -1196,7 +1188,7 @@ export function LossModule() {
                         <span className="text-gray-300">·</span>
                         <span className="text-gray-500">Mức %:</span>
                         <strong className="font-mono text-gray-900 font-bold">
-                          {metrics.isInsufficientData ? 'Chưa đủ dữ liệu' : `${metrics.impactPercent}%`}
+                          {draft.isInsufficientData ? 'Chưa đủ dữ liệu' : `${draft.impactPercent}%`}
                         </strong>
                       </div>
                       <div className="flex items-center gap-1.5 font-bold">

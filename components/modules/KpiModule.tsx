@@ -134,7 +134,7 @@ export function KpiModule() {
   // Pareto Table 2: 9 Nhóm Nguyên nhân MVP (Thời gian sự cố gốc)
   const paretoCauseTable = useMemo(() => {
     const map: Record<LossGroup, number> = {
-      'Cơ khí': 0,
+      Breakdown: 0,
       'Chờ NVL': 0,
       Utility: 0,
       CIP: 0,
