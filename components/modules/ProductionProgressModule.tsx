@@ -132,9 +132,9 @@ ${selectedProductionDate},L04,TO-CORE-01,30.0,28.0,Tấn`;
               <TrendingUp className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-[#202124]">Tiến độ Sản xuất (Kế hoạch vs Thực hiện)</h2>
+              <h2 className="text-base font-bold text-[#202124]">Tiến độ Sản xuất (Tra cứu MES)</h2>
               <p className="mt-0.5 text-xs text-gray-500">
-                Theo dõi sản lượng (tấn) theo ngày & line. Cập nhật lũy kế liên tục, không cộng trùng.
+                Sản lượng kế hoạch & thực tế do MES quản lý (không yêu cầu công nhân nhập lại). Dùng đối soát khi cần.
               </p>
             </div>
           </div>

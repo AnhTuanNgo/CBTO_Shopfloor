@@ -391,31 +391,126 @@ export function calculateImpactMetrics(
   };
 }
 
+export interface ScopeMetricItem {
+  totalDurationMinutes: number;
+  totalConvertedLossMinutes: number;
+  rawSumConvertedLossMinutes: number;
+  overlapSavedMinutes: number;
+  hasInsufficientData: boolean;
+  impactCount: number;
+}
+
 /**
  * Calculates sum of converted loss for a list of impacts, grouped by scope.
  * Prevents naive cross-scope summation.
+ * Accurately handles time-overlapping impacts on the same line to avoid double-counting
+ * capacity loss in the same timeframe (capped at 100% operational capacity per line).
  */
 export function calculateScopeLossMetrics(
   impacts: EventImpactItem[],
   nowMs: number = Date.now()
-): Record<ImpactScope, { totalDurationMinutes: number; totalConvertedLossMinutes: number; hasInsufficientData: boolean }> {
-  const scopes: Record<ImpactScope, { totalDurationMinutes: number; totalConvertedLossMinutes: number; hasInsufficientData: boolean }> = {
-    'Nấu': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
-    'Cấp tương': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
-    'Đóng gói': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
-    'Khác': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, hasInsufficientData: false },
+): Record<ImpactScope, ScopeMetricItem> {
+  const scopes: Record<ImpactScope, ScopeMetricItem> = {
+    'Nấu': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
+    'Cấp tương': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
+    'Đóng gói': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
+    'Khác': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
   };
 
-  impacts.forEach((imp) => {
-    const scope = imp.impactScope || getImpactScope(imp.impactType);
-    const metrics = calculateImpactMetrics(imp, nowMs);
-    scopes[scope].totalDurationMinutes += metrics.durationMinutes;
+  const scopeKeys: ImpactScope[] = ['Nấu', 'Cấp tương', 'Đóng gói', 'Khác'];
 
-    if (metrics.convertedLossMinutes !== null) {
-      scopes[scope].totalConvertedLossMinutes += metrics.convertedLossMinutes;
-    } else {
-      scopes[scope].hasInsufficientData = true;
-    }
+  scopeKeys.forEach((scope) => {
+    const scopeImpacts = impacts.filter((imp) => (imp.impactScope || getImpactScope(imp.impactType)) === scope);
+    scopes[scope].impactCount = scopeImpacts.length;
+
+    if (scopeImpacts.length === 0) return;
+
+    // Group impacts by line to respect physical production boundaries
+    const lineGroupMap: Record<string, EventImpactItem[]> = {};
+    let rawSumLoss = 0;
+    let hasInsufficient = false;
+
+    scopeImpacts.forEach((imp) => {
+      const lineKey = imp.affectedLineId || 'DEFAULT_LINE';
+      if (!lineGroupMap[lineKey]) lineGroupMap[lineKey] = [];
+      lineGroupMap[lineKey].push(imp);
+
+      const m = calculateImpactMetrics(imp, nowMs);
+      if (m.convertedLossMinutes !== null) {
+        rawSumLoss += m.convertedLossMinutes;
+      } else {
+        hasInsufficient = true;
+      }
+    });
+
+    scopes[scope].rawSumConvertedLossMinutes = Math.round(rawSumLoss);
+    scopes[scope].hasInsufficientData = hasInsufficient;
+
+    let totalScopeDedupConvertedLoss = 0;
+    let totalScopeDedupDuration = 0;
+
+    // Process each line independently with time-slice deduplication
+    Object.values(lineGroupMap).forEach((lineImpacts) => {
+      interface IntervalItem {
+        startMs: number;
+        endMs: number;
+        percent: number;
+      }
+
+      const validIntervals: IntervalItem[] = [];
+
+      lineImpacts.forEach((imp) => {
+        if (imp.impactType === 'NONE') return;
+        const startMs = new Date(imp.impactStartedAt).getTime();
+        const endMs = imp.impactEndedAt ? new Date(imp.impactEndedAt).getTime() : nowMs;
+        if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) return;
+
+        const percent = imp.impactPercent !== null && imp.impactPercent !== undefined ? imp.impactPercent : 0;
+        validIntervals.push({ startMs, endMs, percent });
+      });
+
+      if (validIntervals.length === 0) return;
+
+      // Extract unique boundary timestamps
+      const pointsSet = new Set<number>();
+      validIntervals.forEach((inv) => {
+        pointsSet.add(inv.startMs);
+        pointsSet.add(inv.endMs);
+      });
+      const sortedPoints = Array.from(pointsSet).sort((a, b) => a - b);
+
+      let lineDedupLoss = 0;
+      let lineDedupDuration = 0;
+
+      // Slice through contiguous timeline chunks
+      for (let i = 0; i < sortedPoints.length - 1; i++) {
+        const segStart = sortedPoints[i];
+        const segEnd = sortedPoints[i + 1];
+        const segMinutes = (segEnd - segStart) / 60000;
+        if (segMinutes <= 0) continue;
+
+        // Find intervals covering this chunk
+        const covering = validIntervals.filter((inv) => inv.startMs <= segStart && inv.endMs >= segEnd);
+        if (covering.length === 0) continue;
+
+        // If at least one impact was active, duration adds up without double-counting elapsed time
+        lineDedupDuration += segMinutes;
+
+        // Effective capacity loss capped at 100% of line capacity
+        const combinedPercent = covering.reduce((sum, inv) => sum + inv.percent, 0);
+        const effectivePercent = Math.min(100, Math.max(0, combinedPercent));
+
+        lineDedupLoss += (segMinutes * effectivePercent) / 100;
+      }
+
+      totalScopeDedupConvertedLoss += lineDedupLoss;
+      totalScopeDedupDuration += lineDedupDuration;
+    });
+
+    const finalConverted = Math.round(totalScopeDedupConvertedLoss);
+    scopes[scope].totalConvertedLossMinutes = finalConverted;
+    scopes[scope].totalDurationMinutes = Math.round(totalScopeDedupDuration);
+    scopes[scope].overlapSavedMinutes = Math.max(0, scopes[scope].rawSumConvertedLossMinutes - finalConverted);
   });
 
   return scopes;

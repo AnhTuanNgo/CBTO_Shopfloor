@@ -29,8 +29,10 @@ import { evaluateRuleSuggestions, RuleSuggestion } from '@/lib/rule-engine';
 import { useCurrentTimestamp } from '@/hooks/use-current-time';
 import {
   ClockAlert,
+  ShieldAlert,
   Plus,
   AlertCircle,
+  AlertTriangle,
   BarChart3,
   Layers,
   CheckCircle2,
@@ -43,7 +45,6 @@ import {
   Calendar,
   Filter,
   X,
-  AlertTriangle,
   Activity,
   Edit3,
   Flame,
@@ -281,21 +282,8 @@ export function LossModule() {
     return toSafeIso(endDateTime);
   }, [isOngoing, endDateTime]);
 
-  // Section 5 Requirement: User actively chooses impact, not pre-filled with an assumed 50% confirmed capacity reduction!
-  // Default to STOP_COOK for Nấu or STOP_PACKING for Đóng gói, but requires user review and selection
-  const [draftImpacts, setDraftImpacts] = useState<ImpactIntervalDraft[]>([
-    {
-      tempId: 'DRAFT_1',
-      impactType: 'STOP_COOK',
-      affectedLineId: formLineId,
-      affectedStage: 'Nấu',
-      impactStartedAt: startIsoString,
-      impactEndedAt: endIsoString,
-      impactPercent: 100,
-      isInsufficientData: false,
-      note: '',
-    },
-  ]);
+  // Requirement: Do NOT assume "STOP_COOK 100%" by default! User must actively select and confirm actual impact.
+  const [draftImpacts, setDraftImpacts] = useState<ImpactIntervalDraft[]>([]);
 
   // Keep draft start/end in sync with master event if user hasn't created custom sub-intervals
   const syncDraftTimestamps = (newStart: string, newEnd: string | null) => {
@@ -311,6 +299,35 @@ export function LossModule() {
         return imp;
       })
     );
+  };
+
+  // User actively selects initial operational impact
+  const handleSelectInitialImpact = (impactType: ImpactType) => {
+    const isNone = impactType === 'NONE';
+    const isCongestion = impactType === 'COOLING_BUFFER_CONGESTION';
+    const isFullStop = impactType === 'STOP_COOK' || impactType === 'STOP_PACKING';
+    const percent = isNone ? 0 : isCongestion ? null : isFullStop ? 100 : 50;
+
+    const newDraft: ImpactIntervalDraft = {
+      tempId: `DRAFT_1`,
+      impactType,
+      affectedLineId: formLineId,
+      affectedStage:
+        impactType === 'STOP_PACKING' || impactType === 'REDUCE_PACKING_SPEED'
+          ? 'Đóng gói'
+          : impactType === 'STOP_FEED_PACKING' || impactType === 'COOLING_BUFFER_CONGESTION'
+          ? 'Buffer'
+          : formOriginStage,
+      impactStartedAt: startIsoString,
+      impactEndedAt: isOngoing ? null : endIsoString,
+      impactPercent: percent,
+      isInsufficientData: isCongestion,
+      note: '',
+      userModifiedRule: true,
+    };
+
+    setDraftImpacts([newDraft]);
+    setFormError('');
   };
 
   // Evaluate Rule Suggestions based on current form context
@@ -354,21 +371,31 @@ export function LossModule() {
   };
 
   // Add another impact interval for multi-interval events
-  const handleAddDraftInterval = () => {
+  const handleAddDraftInterval = (specificType?: ImpactType) => {
     if (draftImpacts.some((d) => d.impactType === 'NONE')) {
-      setFormError('Sự kiện đang chọn "Không ảnh hưởng vận hành" (tùy chọn loại trừ). Hãy đổi loại ảnh hưởng trước khi thêm khoảng mới.');
+      setFormError('Sự kiện đang chọn "Không ảnh hưởng vận hành" (tùy chọn loại trừ). Hãy xóa hoặc đổi loại ảnh hưởng trước khi thêm khoảng mới.');
       return;
     }
 
+    const typeToAdd = specificType || 'REDUCE_COOK_CAPACITY';
+    const isFullStop = typeToAdd === 'STOP_COOK' || typeToAdd === 'STOP_PACKING';
+    const isCongestion = typeToAdd === 'COOLING_BUFFER_CONGESTION';
+    const percent = isCongestion ? null : isFullStop ? 100 : 50;
+
     const newInterval: ImpactIntervalDraft = {
       tempId: `DRAFT_${draftImpacts.length + 1}`,
-      impactType: 'STOP_COOK',
+      impactType: typeToAdd,
       affectedLineId: formLineId,
-      affectedStage: formOriginStage,
+      affectedStage:
+        typeToAdd === 'STOP_PACKING' || typeToAdd === 'REDUCE_PACKING_SPEED'
+          ? 'Đóng gói'
+          : typeToAdd === 'STOP_FEED_PACKING' || typeToAdd === 'COOLING_BUFFER_CONGESTION'
+          ? 'Buffer'
+          : formOriginStage,
       impactStartedAt: startIsoString,
-      impactEndedAt: endIsoString,
-      impactPercent: 100,
-      isInsufficientData: false,
+      impactEndedAt: isOngoing ? null : endIsoString,
+      impactPercent: percent,
+      isInsufficientData: isCongestion,
       note: '',
       userModifiedRule: true,
     };
@@ -395,10 +422,6 @@ export function LossModule() {
   };
 
   const handleDeleteDraftInterval = (tempId: string) => {
-    if (draftImpacts.length <= 1) {
-      setFormError('Sự kiện phải có ít nhất một khai báo ảnh hưởng vận hành!');
-      return;
-    }
     setDraftImpacts((prev) => prev.filter((d) => d.tempId !== tempId));
   };
 
@@ -436,6 +459,11 @@ export function LossModule() {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
+
+    if (draftImpacts.length === 0) {
+      setFormError('Sự kiện chưa có ảnh hưởng vận hành! Vui lòng chủ động chọn loại ảnh hưởng thực tế tại Phần 3 (không mặc định Dừng nấu 100%).');
+      return;
+    }
 
     if (formCategory === 'Khác' && !formNote.trim()) {
       setFormError('Nhóm Loss "Khác" bắt buộc phải nhập ghi chú giải trình!');
@@ -1027,7 +1055,7 @@ export function LossModule() {
 
               <button
                 type="button"
-                onClick={handleAddDraftInterval}
+                onClick={() => handleAddDraftInterval()}
                 className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 px-4 py-2 text-xs font-bold text-gray-800 transition-colors cursor-pointer self-start sm:self-auto shadow-2xs"
               >
                 <Plus className="h-4 w-4 text-[#E31837]" />
@@ -1036,37 +1064,89 @@ export function LossModule() {
             </div>
 
             {/* Intervals List */}
-            <div className="space-y-4">
-              {draftImpacts.map((draft, idx) => {
-                const isNone = draft.impactType === 'NONE';
-                const isCongestion = draft.impactType === 'COOLING_BUFFER_CONGESTION';
-                const metrics = calculateImpactMetrics(
-                  {
-                    impactType: draft.impactType,
-                    impactStartedAt: draft.impactStartedAt,
-                    impactEndedAt: draft.impactEndedAt,
-                    impactPercent: draft.isInsufficientData ? null : draft.impactPercent,
-                  },
-                  nowMs
-                );
+            {draftImpacts.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-red-200 bg-red-50/20 p-5 sm:p-6 text-center space-y-4">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-[#E31837] shadow-xs">
+                  <ShieldAlert className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-gray-900 tracking-tight">
+                    Chưa chọn ảnh hưởng vận hành thực tế
+                  </h4>
+                  <p className="text-xs text-gray-500 max-w-lg mx-auto leading-relaxed">
+                    Hệ thống <strong>không mặc định dừng nấu 100%</strong>. Vui lòng bấm chọn ảnh hưởng thực tế diễn ra tại hiện trường theo một trong các lựa chọn bên dưới:
+                  </p>
+                </div>
 
-                return (
-                  <div
-                    key={draft.tempId}
-                    className="rounded-2xl border border-gray-200 bg-gray-50/40 p-4 sm:p-5 space-y-4"
-                  >
-                    <div className="flex items-center justify-between border-b border-gray-200/80 pb-3">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="font-extrabold text-gray-900">
-                          Khoảng thời gian ảnh hưởng #{idx + 1}
-                        </span>
-                        <span aria-hidden="true" className="text-gray-300">·</span>
-                        <span className="text-gray-500">
-                          Phạm vi: <strong className="text-gray-800">{getImpactScope(draft.impactType)}</strong>
-                        </span>
-                      </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-2 text-left">
+                  {IMPACT_TYPES.map((t) => {
+                    const isNone = t === 'NONE';
+                    const isStop = t === 'STOP_COOK' || t === 'STOP_PACKING';
+                    const isFeed = t === 'STOP_FEED_PACKING';
+                    const isCongestion = t === 'COOLING_BUFFER_CONGESTION';
 
-                      {draftImpacts.length > 1 && (
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => handleSelectInitialImpact(t)}
+                        className={`p-3.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer flex flex-col justify-between text-left group hover:scale-[1.01] active:scale-[0.99] ${
+                          isNone
+                            ? 'bg-gray-50 border-gray-300 hover:bg-gray-100 text-gray-700'
+                            : isStop
+                            ? 'bg-white border-red-200 hover:border-red-400 hover:bg-red-50/50 text-gray-900 shadow-2xs'
+                            : isFeed || isCongestion
+                            ? 'bg-white border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 text-gray-900 shadow-2xs'
+                            : 'bg-white border-amber-200 hover:border-amber-400 hover:bg-amber-50/50 text-gray-900 shadow-2xs'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="font-extrabold text-gray-900 group-hover:text-[#E31837] transition-colors">
+                            {getImpactLabel(t)}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                            {getImpactScope(t)}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-normal text-gray-500 mt-1.5 leading-snug line-clamp-2">
+                          {IMPACT_TYPE_DEFINITIONS[t]?.description}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {draftImpacts.map((draft, idx) => {
+                  const isNone = draft.impactType === 'NONE';
+                  const isCongestion = draft.impactType === 'COOLING_BUFFER_CONGESTION';
+                  const metrics = calculateImpactMetrics(
+                    {
+                      impactType: draft.impactType,
+                      impactStartedAt: draft.impactStartedAt,
+                      impactEndedAt: draft.impactEndedAt,
+                      impactPercent: draft.isInsufficientData ? null : draft.impactPercent,
+                    },
+                    nowMs
+                  );
+
+                  return (
+                    <div
+                      key={draft.tempId}
+                      className="rounded-2xl border border-gray-200 bg-gray-50/40 p-4 sm:p-5 space-y-4 shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between border-b border-gray-200/80 pb-3">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-extrabold text-gray-900">
+                            Khoảng thời gian ảnh hưởng #{idx + 1}
+                          </span>
+                          <span aria-hidden="true" className="text-gray-300">·</span>
+                          <span className="text-gray-500">
+                            Phạm vi: <strong className="text-gray-800">{getImpactScope(draft.impactType)}</strong>
+                          </span>
+                        </div>
+
                         <button
                           type="button"
                           onClick={() => handleDeleteDraftInterval(draft.tempId)}
@@ -1075,8 +1155,7 @@ export function LossModule() {
                         >
                           Xóa khoảng
                         </button>
-                      )}
-                    </div>
+                      </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {/* Loại ảnh hưởng */}
@@ -1202,7 +1281,8 @@ export function LossModule() {
                 );
               })}
             </div>
-          </div>
+          )}
+        </div>
 
           {/* PART 4: XEM LẠI THÔNG TIN VÀ XÁC NHẬN LƯU */}
           <div className="rounded-3xl bg-white border border-gray-200/80 p-5 sm:p-7 space-y-4 shadow-xs">

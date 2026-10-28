@@ -25,6 +25,8 @@ import {
 export function KpiModule() {
   const {
     selectedProductionDate,
+    selectedShiftId,
+    selectedLineId,
     lines,
     equipments,
     amChecklists,
@@ -34,32 +36,62 @@ export function KpiModule() {
   } = useAppStore();
 
   const nowMs = useCurrentTimestamp();
+  const activeLine = lines.find((l) => l.id === selectedLineId);
+
+  // Scope filter: Toàn xưởng vs Line; Ca hiện tại vs Cả ngày
+  const [scopeFilter, setScopeFilter] = useState<'PLANT' | 'LINE'>('PLANT');
+  const [shiftFilter, setShiftFilter] = useState<'SHIFT' | 'DAY'>('SHIFT');
   const [paretoTableMode, setParetoTableMode] = useState<'IMPACT' | 'CAUSE'>('IMPACT');
 
-  // 1. KPI AM
-  const totalEquipments = equipments.length;
-  const amCompletedCount = amChecklists.filter((c) => c.status === 'COMPLETED').length;
-  const amComplianceRate = totalEquipments > 0 ? +((amCompletedCount / totalEquipments) * 100).toFixed(1) : 0;
+  // 1. KPI AM - Strictly by selected date, shift, and target equipments
+  const targetEquipments = useMemo(() => {
+    return scopeFilter === 'LINE' ? equipments.filter((e) => e.lineId === selectedLineId) : equipments;
+  }, [equipments, scopeFilter, selectedLineId]);
 
-  let totalPass = 0;
-  let totalPassTag = 0;
-  let totalFail = 0;
-  amChecklists.forEach((c) => {
-    c.items.forEach((i) => {
-      if (i.result === 'PASS') totalPass++;
-      if (i.result === 'PASS_TAG') totalPassTag++;
-      if (i.result === 'FAIL') totalFail++;
+  const targetAmChecklists = useMemo(() => {
+    return amChecklists.filter((c) => {
+      if (c.productionDate !== selectedProductionDate) return false;
+      if (shiftFilter === 'SHIFT' && c.shiftId !== selectedShiftId) return false;
+      if (scopeFilter === 'LINE' && c.lineId !== selectedLineId) return false;
+      return true;
     });
-  });
+  }, [amChecklists, selectedProductionDate, shiftFilter, selectedShiftId, scopeFilter, selectedLineId]);
 
-  // 2. KPI Loss: Scope-separated & Specific Operational Impacts
-  const todayLogs = useMemo(() => {
-    return lossLogs.filter((l) => l.productionDate === selectedProductionDate);
-  }, [lossLogs, selectedProductionDate]);
+  const totalTargetEquipments = targetEquipments.length;
+  const checkedEquipmentIds = useMemo(() => {
+    return new Set(targetAmChecklists.filter((c) => c.status === 'COMPLETED').map((c) => c.equipmentId));
+  }, [targetAmChecklists]);
+
+  const amCompletedCount = targetEquipments.filter((e) => checkedEquipmentIds.has(e.id)).length;
+  const amComplianceRate = totalTargetEquipments > 0 ? +((amCompletedCount / totalTargetEquipments) * 100).toFixed(1) : 0;
+
+  const { totalPass, totalPassTag, totalFail } = useMemo(() => {
+    let p = 0;
+    let pt = 0;
+    let f = 0;
+    targetAmChecklists.forEach((c) => {
+      c.items.forEach((i) => {
+        if (i.result === 'PASS') p++;
+        if (i.result === 'PASS_TAG') pt++;
+        if (i.result === 'FAIL') f++;
+      });
+    });
+    return { totalPass: p, totalPassTag: pt, totalFail: f };
+  }, [targetAmChecklists]);
+
+  // 2. KPI Loss: Strictly filtered by active scope & shift
+  const filteredLossLogs = useMemo(() => {
+    return lossLogs.filter((l) => {
+      if (l.productionDate !== selectedProductionDate) return false;
+      if (shiftFilter === 'SHIFT' && l.shiftId !== selectedShiftId) return false;
+      if (scopeFilter === 'LINE' && l.lineId !== selectedLineId) return false;
+      return true;
+    });
+  }, [lossLogs, selectedProductionDate, shiftFilter, selectedShiftId, scopeFilter, selectedLineId]);
 
   const allTodayImpacts = useMemo(() => {
-    return todayLogs.flatMap((l) => l.impacts || []);
-  }, [todayLogs]);
+    return filteredLossLogs.flatMap((l) => l.impacts || []);
+  }, [filteredLossLogs]);
 
   const scopeMetrics = useMemo(() => {
     return calculateScopeLossMetrics(allTodayImpacts, nowMs);
@@ -145,7 +177,7 @@ export function KpiModule() {
       Khác: 0,
     };
 
-    todayLogs.forEach((l) => {
+    filteredLossLogs.forEach((l) => {
       const s = new Date(l.startedAt).getTime();
       const e = l.endedAt ? new Date(l.endedAt).getTime() : (nowMs || s);
       map[l.lossGroup] = (map[l.lossGroup] || 0) + Math.max(0, Math.round((e - s) / 60000));
@@ -173,7 +205,7 @@ export function KpiModule() {
       });
       return acc;
     }, []);
-  }, [todayLogs, nowMs]);
+  }, [filteredLossLogs, nowMs]);
 
   // 3. KPI Runtime
   const completedRuns = runtimes.filter((r) => r.status === 'COMPLETED' && r.stoppedAt);
@@ -207,8 +239,8 @@ export function KpiModule() {
 
   return (
     <div className="space-y-6">
-      {/* Header Bar */}
-      <div className="rounded-2xl border border-gray-200/80 bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+      {/* Header Bar with Scope Toggles */}
+      <div className="rounded-2xl border border-gray-200/80 bg-white p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-[#E31837]">
@@ -217,16 +249,63 @@ export function KpiModule() {
             <div>
               <h2 className="text-base font-bold text-[#202124]">Chỉ Số Hiệu Suất Shopfloor (KPI)</h2>
               <p className="mt-0.5 text-xs text-gray-500">
-                Tổng hợp dữ liệu sản xuất ngày: <strong>{formatDateVN(selectedProductionDate)}</strong> (Mốc đổi ngày 06:00 sáng)
+                Ngày sản xuất: <strong>{formatDateVN(selectedProductionDate)}</strong> · Mốc đổi ngày 06:00 sáng
               </p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
-          <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-700 font-bold border border-gray-200">
-            Loss theo 3 phạm vi độc lập · Không cộng trùng
-          </span>
+        {/* Scope Toggles */}
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <div className="inline-flex rounded-xl bg-gray-100 p-0.5 border border-gray-200">
+            <button
+              type="button"
+              onClick={() => setScopeFilter('PLANT')}
+              className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                scopeFilter === 'PLANT'
+                  ? 'bg-white text-gray-900 shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              Toàn xưởng
+            </button>
+            <button
+              type="button"
+              onClick={() => setScopeFilter('LINE')}
+              className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                scopeFilter === 'LINE'
+                  ? 'bg-[#E31837] text-white shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {activeLine?.code || 'Line'}
+            </button>
+          </div>
+
+          <div className="inline-flex rounded-xl bg-gray-100 p-0.5 border border-gray-200">
+            <button
+              type="button"
+              onClick={() => setShiftFilter('SHIFT')}
+              className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                shiftFilter === 'SHIFT'
+                  ? 'bg-[#E31837] text-white shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {selectedShiftId}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShiftFilter('DAY')}
+              className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                shiftFilter === 'DAY'
+                  ? 'bg-white text-gray-900 shadow-2xs'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              Cả ngày
+            </button>
+          </div>
         </div>
       </div>
 
@@ -240,10 +319,12 @@ export function KpiModule() {
           </div>
 
           <div>
-            <span className="text-[11px] text-gray-400 font-medium">Tỷ lệ hoàn thành checklist ca</span>
+            <span className="text-[11px] text-gray-400 font-medium">
+              Tỷ lệ hoàn thành checklist ({scopeFilter === 'PLANT' ? 'Toàn xưởng' : activeLine?.code} · {shiftFilter === 'SHIFT' ? selectedShiftId : 'Cả ngày'})
+            </span>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-3xl font-black text-[#202124] font-mono">{amComplianceRate}%</span>
-              <span className="text-xs text-gray-500">({amCompletedCount}/{totalEquipments} máy)</span>
+              <span className="text-xs text-gray-500 font-medium">({amCompletedCount}/{totalTargetEquipments} máy)</span>
             </div>
           </div>
 

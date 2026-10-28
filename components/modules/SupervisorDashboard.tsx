@@ -41,6 +41,7 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
     selectedProductionDate,
     selectedShiftId,
     selectedLineId,
+    setSelectedLineId,
     lines,
     skus,
     equipments,
@@ -49,95 +50,156 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
     lossLogs,
     runtimes,
     cips,
-    productionProgress,
   } = useAppStore();
 
   const nowMs = useCurrentTimestamp();
   const activeLine = lines.find((l) => l.id === selectedLineId);
 
+  // Unified Scope Controls: Toàn xưởng vs Line đang chọn; Ca hiện tại vs Cả ngày
+  const [scopeFilter, setScopeFilter] = useState<'PLANT' | 'LINE'>('PLANT');
+  const [shiftFilter, setShiftFilter] = useState<'SHIFT' | 'DAY'>('SHIFT');
+
   // Pareto view mode: Cause (Nguyên nhân) vs Impact (Ảnh hưởng vận hành)
   const [paretoView, setParetoView] = useState<'IMPACT' | 'CAUSE'>('IMPACT');
 
-  // 1. Alerts calculations
-  // A. AM chưa thực hiện trong ca hiện tại trên các line
-  const pendingAmEquipments = useMemo(() => {
-    const list: { lineCode: string; eqName: string; lineId: string }[] = [];
-    lines.forEach((line) => {
-      const lineEqs = equipments.filter((e) => e.lineId === line.id);
-      lineEqs.forEach((eq) => {
-        const completed = amChecklists.find(
-          (c) =>
-            c.equipmentId === eq.id &&
-            c.productionDate === selectedProductionDate &&
-            c.shiftId === selectedShiftId
-        );
-        if (!completed) {
-          list.push({ lineCode: line.code, eqName: eq.name, lineId: line.id });
-        }
-      });
+  // Filter Loss Logs strictly by active scope and shift filter
+  const filteredLossLogs = useMemo(() => {
+    return lossLogs.filter((l) => {
+      if (l.productionDate !== selectedProductionDate) return false;
+      if (shiftFilter === 'SHIFT' && l.shiftId !== selectedShiftId) return false;
+      if (scopeFilter === 'LINE' && l.lineId !== selectedLineId) return false;
+      return true;
     });
-    return list;
-  }, [lines, equipments, amChecklists, selectedProductionDate, selectedShiftId]);
+  }, [lossLogs, selectedProductionDate, shiftFilter, selectedShiftId, scopeFilter, selectedLineId]);
 
-  // B. Runtimes > 90%
-  const highRuntimeLines = useMemo(() => {
-    return runtimes
-      .filter((r) => r.status === 'RUNNING')
-      .map((r) => {
-        const sTime = new Date(r.startedAt).getTime();
-        const status = computeRuntimeStatus(r.startedAt, r.limitHoursSnapshot, null, nowMs || sTime);
-        const line = lines.find((l) => l.id === r.lineId);
-        const sku = skus.find((s) => s.id === r.skuId);
-        return {
-          runtime: r,
-          status,
-          line,
-          sku,
-        };
-      })
-      .filter((item) => item.status.usagePercent > 90);
-  }, [runtimes, lines, skus, nowMs]);
+  const filteredImpacts = useMemo(() => {
+    return filteredLossLogs.flatMap((l) => l.impacts || []);
+  }, [filteredLossLogs]);
 
-  // C. Unread abnormalities
-  const unreadAbnormals = useMemo(() => {
-    return abnormalLogs.filter((a) => !a.acknowledgedAt);
-  }, [abnormalLogs]);
-
-  // D. CIP active / sampling
-  const activeCips = useMemo(() => {
-    return cips.filter((c) => c.status === 'IN_CIP' || c.status === 'POST_CIP_SAMPLING');
-  }, [cips]);
-
-  // 2. Core Metrics: Sản lượng
-  const totalPlannedTons = productionProgress
-    .filter((p) => p.productionDate === selectedProductionDate)
-    .reduce((acc, p) => acc + p.plannedQty, 0);
-
-  const totalActualTons = productionProgress
-    .filter((p) => p.productionDate === selectedProductionDate)
-    .reduce((acc, p) => acc + p.actualQty, 0);
-
-  const prodCompletionRate = totalPlannedTons > 0 ? +((totalActualTons / totalPlannedTons) * 100).toFixed(1) : null;
-
-  // 3. Operational Impact KPIs & Scope Separation (Anti-Duplication Principle)
-  const todayLogs = useMemo(() => {
-    return lossLogs.filter((l) => l.productionDate === selectedProductionDate);
-  }, [lossLogs, selectedProductionDate]);
-
-  const allTodayImpacts = useMemo(() => {
-    return todayLogs.flatMap((l) => l.impacts || []);
-  }, [todayLogs]);
-
+  // Operational Impact KPIs with non-overlapping deduplication
   const scopeMetrics = useMemo(() => {
-    return calculateScopeLossMetrics(allTodayImpacts, nowMs);
-  }, [allTodayImpacts, nowMs]);
+    return calculateScopeLossMetrics(filteredImpacts, nowMs);
+  }, [filteredImpacts, nowMs]);
+
+  // Operational Specific KPIs
+  const operationalKpiStats = useMemo(() => {
+    let stopCookMinutes = 0;
+    let reduceCookMinutes = 0;
+    let stopFeedPackingMinutes = 0;
+    let coolingCongestionDuration = 0;
+    let hasInsufficientCongestion = false;
+
+    filteredImpacts.forEach((imp) => {
+      const m = calculateImpactMetrics(imp, nowMs);
+      const minutes = m.convertedLossMinutes || 0;
+
+      if (imp.impactType === 'STOP_COOK') {
+        stopCookMinutes += minutes;
+      } else if (imp.impactType === 'REDUCE_COOK_CAPACITY') {
+        reduceCookMinutes += minutes;
+      } else if (imp.impactType === 'STOP_FEED_PACKING') {
+        stopFeedPackingMinutes += minutes;
+      } else if (imp.impactType === 'COOLING_BUFFER_CONGESTION') {
+        coolingCongestionDuration += m.durationMinutes;
+        if (m.status === 'INSUFFICIENT_DATA' || m.convertedLossMinutes === null) {
+          hasInsufficientCongestion = true;
+        }
+      }
+    });
+
+    return {
+      stopCookMinutes: Math.round(stopCookMinutes),
+      reduceCookMinutes: Math.round(reduceCookMinutes),
+      stopFeedPackingMinutes: Math.round(stopFeedPackingMinutes),
+      coolingCongestionDuration: Math.round(coolingCongestionDuration),
+      hasInsufficientCongestion,
+    };
+  }, [filteredImpacts, nowMs]);
+
+  // 1. KPI AM - Calculated strictly by selected date, shift, and target equipments
+  const targetEquipments = useMemo(() => {
+    return scopeFilter === 'LINE' ? equipments.filter((e) => e.lineId === selectedLineId) : equipments;
+  }, [equipments, scopeFilter, selectedLineId]);
+
+  const targetAmChecklists = useMemo(() => {
+    return amChecklists.filter((c) => {
+      if (c.productionDate !== selectedProductionDate) return false;
+      if (shiftFilter === 'SHIFT' && c.shiftId !== selectedShiftId) return false;
+      if (scopeFilter === 'LINE' && c.lineId !== selectedLineId) return false;
+      return true;
+    });
+  }, [amChecklists, selectedProductionDate, shiftFilter, selectedShiftId, scopeFilter, selectedLineId]);
+
+  const checkedEquipmentIds = useMemo(() => {
+    return new Set(targetAmChecklists.filter((c) => c.status === 'COMPLETED').map((c) => c.equipmentId));
+  }, [targetAmChecklists]);
+
+  const amCompletedCount = targetEquipments.filter((e) => checkedEquipmentIds.has(e.id)).length;
+  const totalTargetEquipments = targetEquipments.length;
+  const amComplianceRate = totalTargetEquipments > 0 ? +((amCompletedCount / totalTargetEquipments) * 100).toFixed(1) : 0;
+
+  // Pending AM equipment list for alert
+  const pendingAmEquipments = useMemo(() => {
+    return targetEquipments
+      .filter((eq) => !checkedEquipmentIds.has(eq.id))
+      .map((eq) => {
+        const line = lines.find((l) => l.id === eq.lineId);
+        return {
+          lineCode: line?.code || eq.lineId,
+          eqName: eq.name,
+          lineId: eq.lineId,
+        };
+      });
+  }, [targetEquipments, checkedEquipmentIds, lines]);
+
+  // 2. Line health status across all lines (Plant overview)
+  const lineHealthOverview = useMemo(() => {
+    return lines.map((line) => {
+      const activeOngoingLoss = lossLogs.find(
+        (l) => l.lineId === line.id && l.productionDate === selectedProductionDate && !l.endedAt
+      );
+      const activeCip = cips.find(
+        (c) => c.lineId === line.id && (c.status === 'IN_CIP' || c.status === 'POST_CIP_SAMPLING')
+      );
+      const activeRuntime = runtimes.find((r) => r.lineId === line.id && r.status === 'RUNNING');
+
+      let status = 'Sẵn sàng';
+      let type: 'running' | 'danger' | 'cip' | 'ready' = 'ready';
+      let desc = 'Sẵn sàng nhận mẻ';
+
+      if (activeOngoingLoss) {
+        status = 'Sự cố / Dừng';
+        type = 'danger';
+        desc = activeOngoingLoss.downtimeReason || activeOngoingLoss.lossGroup;
+      } else if (activeCip) {
+        status = activeCip.status === 'IN_CIP' ? 'Đang CIP' : 'Post-CIP';
+        type = 'cip';
+        desc = activeCip.note || 'Vệ sinh trạm';
+      } else if (activeRuntime) {
+        status = 'Đang chạy';
+        type = 'running';
+        const sku = skus.find((s) => s.id === activeRuntime.skuId);
+        desc = sku?.name || 'Sản xuất';
+      }
+
+      return {
+        line,
+        status,
+        type,
+        desc,
+        isSelected: line.id === selectedLineId,
+      };
+    });
+  }, [lines, lossLogs, selectedProductionDate, cips, runtimes, skus, selectedLineId]);
 
   // Active line status calculation
   const activeLineRuntime = runtimes.find((r) => r.lineId === selectedLineId && r.status === 'RUNNING');
   const activeLineCip = cips.find(
     (c) => c.lineId === selectedLineId && (c.status === 'IN_CIP' || c.status === 'POST_CIP_SAMPLING')
   );
-  const activeLineOngoingLoss = todayLogs.find((l) => l.lineId === selectedLineId && !l.endedAt);
+  const activeLineOngoingLoss = lossLogs.find(
+    (l) => l.lineId === selectedLineId && l.productionDate === selectedProductionDate && !l.endedAt
+  );
 
   const activeLineStatus = useMemo(() => {
     if (activeLineOngoingLoss) {
@@ -176,45 +238,49 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
     };
   }, [activeLineOngoingLoss, activeLineCip, activeLineRuntime, skus]);
 
-  // Operational Specific KPIs
-  const operationalKpiStats = useMemo(() => {
-    let stopCookMinutes = 0;
-    let reduceCookMinutes = 0;
-    let stopFeedPackingMinutes = 0;
-    let coolingCongestionDuration = 0;
-    let hasInsufficientCongestion = false;
+  // 3. Runtimes > 90% (in active scope)
+  const highRuntimeLines = useMemo(() => {
+    return runtimes
+      .filter((r) => r.status === 'RUNNING')
+      .filter((r) => scopeFilter === 'PLANT' || r.lineId === selectedLineId)
+      .map((r) => {
+        const sTime = new Date(r.startedAt).getTime();
+        const status = computeRuntimeStatus(r.startedAt, r.limitHoursSnapshot, null, nowMs || sTime);
+        const line = lines.find((l) => l.id === r.lineId);
+        const sku = skus.find((s) => s.id === r.skuId);
+        return {
+          runtime: r,
+          status,
+          line,
+          sku,
+        };
+      })
+      .filter((item) => item.status.usagePercent > 90);
+  }, [runtimes, scopeFilter, selectedLineId, lines, skus, nowMs]);
 
-    allTodayImpacts.forEach((imp) => {
-      const m = calculateImpactMetrics(imp, nowMs);
-      const minutes = m.convertedLossMinutes || 0;
-
-      if (imp.impactType === 'STOP_COOK') {
-        stopCookMinutes += minutes;
-      } else if (imp.impactType === 'REDUCE_COOK_CAPACITY') {
-        reduceCookMinutes += minutes;
-      } else if (imp.impactType === 'STOP_FEED_PACKING') {
-        stopFeedPackingMinutes += minutes;
-      } else if (imp.impactType === 'COOLING_BUFFER_CONGESTION') {
-        coolingCongestionDuration += m.durationMinutes;
-        if (m.status === 'INSUFFICIENT_DATA' || m.convertedLossMinutes === null) {
-          hasInsufficientCongestion = true;
-        }
-      }
+  // 4. Unread abnormalities (in active scope)
+  const targetAbnormalLogs = useMemo(() => {
+    return abnormalLogs.filter((a) => {
+      if (scopeFilter === 'LINE' && a.lineId !== selectedLineId) return false;
+      return true;
     });
+  }, [abnormalLogs, scopeFilter, selectedLineId]);
 
-    return {
-      stopCookMinutes: Math.round(stopCookMinutes),
-      reduceCookMinutes: Math.round(reduceCookMinutes),
-      stopFeedPackingMinutes: Math.round(stopFeedPackingMinutes),
-      coolingCongestionDuration: Math.round(coolingCongestionDuration),
-      hasInsufficientCongestion,
-    };
-  }, [allTodayImpacts, nowMs]);
+  const unreadAbnormals = useMemo(() => {
+    return targetAbnormalLogs.filter((a) => !a.acknowledgedAt);
+  }, [targetAbnormalLogs]);
 
-  // Pareto by Impact
+  // 5. Active CIPs (in active scope)
+  const activeCips = useMemo(() => {
+    return cips
+      .filter((c) => scopeFilter === 'PLANT' || c.lineId === selectedLineId)
+      .filter((c) => c.status === 'IN_CIP' || c.status === 'POST_CIP_SAMPLING');
+  }, [cips, scopeFilter, selectedLineId]);
+
+  // Pareto by Impact (using filteredImpacts)
   const paretoImpactData = useMemo(() => {
     const impactMap: { [key in ImpactType]?: number } = {};
-    allTodayImpacts.forEach((imp) => {
+    filteredImpacts.forEach((imp) => {
       const m = calculateImpactMetrics(imp, nowMs);
       if (m.convertedLossMinutes && m.convertedLossMinutes > 0) {
         impactMap[imp.impactType] = (impactMap[imp.impactType] || 0) + m.convertedLossMinutes;
@@ -250,9 +316,9 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
       });
     }
     return result;
-  }, [allTodayImpacts, nowMs]);
+  }, [filteredImpacts, nowMs]);
 
-  // Pareto by Cause Group
+  // Pareto by Cause Group (using filteredLossLogs)
   const paretoCauseData = useMemo(() => {
     const causeMap: { [key in LossGroup]?: number } = {
       Breakdown: 0,
@@ -266,7 +332,7 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
       Khác: 0,
     };
 
-    todayLogs.forEach((l) => {
+    filteredLossLogs.forEach((l) => {
       causeMap[l.lossGroup] = (causeMap[l.lossGroup] || 0) + (l.durationMinutes || 0);
     });
 
@@ -300,7 +366,7 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
       });
     }
     return result;
-  }, [todayLogs]);
+  }, [filteredLossLogs]);
 
   // Top equipment failures
   const topFailureEquipments = useMemo(() => {
@@ -327,9 +393,8 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
 
   return (
     <div className="space-y-6">
-      {/* 1. TECHCOMBANK-STYLE HERO CARD: BẢNG ĐIỀU HÀNH SHOPFLOOR */}
+      {/* 1. TECHCOMBANK-STYLE HERO CARD: BẢNG SỨC KHỎE VẬN HÀNH SHOPFLOOR */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-red-50/40 to-rose-50/30 border border-gray-200/90 p-5 sm:p-7 shadow-xs">
-        {/* Subtle decorative background watermarks */}
         <div className="absolute right-0 top-0 -mt-8 -mr-8 h-48 w-48 rounded-full bg-red-100/30 blur-2xl pointer-events-none" />
 
         <div className="relative z-10 space-y-5">
@@ -338,7 +403,7 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Dây Chuyền Trọng Điểm:
+                  Dây Chuyền Đang Chọn:
                 </span>
                 <span className="text-base font-extrabold text-gray-900">
                   {activeLine?.name} ({activeLine?.code})
@@ -350,7 +415,7 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
               </p>
             </div>
 
-            {/* Operating status badge */}
+            {/* Operating status badge of active line */}
             <div
               className={`inline-flex items-center gap-2 rounded-2xl border px-3.5 py-1.5 text-xs font-bold shadow-2xs self-start sm:self-center ${activeLineStatus.color}`}
             >
@@ -363,91 +428,232 @@ export function SupervisorDashboard({ onNavigateToTab }: SupervisorDashboardProp
             </div>
           </div>
 
-          {/* Core Numbers Banner: Sản lượng & 3 Phạm Vi Loss */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Sản Lượng */}
-            <div className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs">
-              <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
-                <span>Sản lượng thực hiện</span>
-                <TrendingUp className="h-4 w-4 text-[#E31837]" />
-              </div>
-              <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="text-3xl font-black text-gray-900 font-mono tabular-nums">
-                  {totalActualTons.toFixed(1)}
-                </span>
-                <span className="text-xs text-gray-500 font-medium">/ {totalPlannedTons.toFixed(1)} Tấn</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
-                <span className="text-gray-500">Hoàn thành:</span>
-                <span
-                  className={`font-mono font-bold tabular-nums ${
-                    prodCompletionRate === null
-                      ? 'text-gray-400'
-                      : prodCompletionRate >= 80
-                      ? 'text-[#16865B]'
-                      : 'text-[#D97706]'
+          {/* Unified Scope & Shift Filter Selector */}
+          <div className="rounded-2xl bg-white p-3 border border-gray-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-extrabold text-gray-700 uppercase tracking-wider text-[11px]">
+                Phạm vi số liệu:
+              </span>
+              <div className="inline-flex rounded-xl bg-gray-100 p-0.5 border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('PLANT')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    scopeFilter === 'PLANT'
+                      ? 'bg-white text-gray-900 shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-800'
                   }`}
                 >
-                  {prodCompletionRate !== null ? `${prodCompletionRate}%` : 'Chưa có kế hoạch'}
+                  Toàn xưởng (Tất cả Line)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScopeFilter('LINE')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    scopeFilter === 'LINE'
+                      ? 'bg-[#E31837] text-white shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {activeLine?.code || 'Line đang chọn'}
+                </button>
+              </div>
+
+              <div className="inline-flex rounded-xl bg-gray-100 p-0.5 border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShiftFilter('SHIFT')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    shiftFilter === 'SHIFT'
+                      ? 'bg-[#E31837] text-white shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {selectedShiftId}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShiftFilter('DAY')}
+                  className={`px-3 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                    shiftFilter === 'DAY'
+                      ? 'bg-white text-gray-900 shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  Cả ngày SX
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Line Selector Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+              <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">Đổi Line nhanh:</span>
+              {lineHealthOverview.map((item) => (
+                <button
+                  key={item.line.id}
+                  type="button"
+                  onClick={() => setSelectedLineId(item.line.id)}
+                  className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    item.isSelected
+                      ? 'bg-gray-900 text-white border-gray-900 shadow-xs'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      item.type === 'danger'
+                        ? 'bg-red-500'
+                        : item.type === 'cip'
+                        ? 'bg-amber-500'
+                        : item.type === 'running'
+                        ? 'bg-emerald-500'
+                        : 'bg-gray-400'
+                    }`}
+                  />
+                  <span>{item.line.code}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 5 Core Operational Health Cards (No MES production targets!) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+            {/* Health Card 1: Trạng thái Line & Bất thường */}
+            <div
+              onClick={() => onNavigateToTab('record', 'abnormal')}
+              className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs hover:border-gray-300 transition-all cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                  <span>Trạng thái Line & Bất thường</span>
+                  <AlertTriangle className={`h-4 w-4 ${unreadAbnormals.length > 0 ? 'text-[#E31837]' : 'text-gray-400'}`} />
+                </div>
+                <div className="mt-2">
+                  <span className="text-xl font-black text-gray-900 block leading-tight">
+                    {activeLineStatus.label}
+                  </span>
+                  <span className="text-xs text-gray-500 truncate block mt-0.5">
+                    {activeLineStatus.desc}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between text-xs">
+                <span className="text-gray-500">Cần xử lý:</span>
+                <span className={`font-mono font-bold ${unreadAbnormals.length > 0 ? 'text-[#E31837]' : 'text-[#16865B]'}`}>
+                  {unreadAbnormals.length > 0 ? `${unreadAbnormals.length} sự việc` : '0 bất thường'}
                 </span>
               </div>
             </div>
 
-            {/* Loss Nấu */}
-            <div className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs">
-              <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
-                <span>Loss Phạm vi Nấu</span>
-                <ClockAlert className="h-4 w-4 text-rose-500" />
+            {/* Health Card 2: Loss Nấu (Deduplicated) */}
+            <div
+              onClick={() => onNavigateToTab('record', 'loss')}
+              className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs hover:border-red-200 transition-all cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                  <span>Loss Phạm vi Nấu</span>
+                  <ClockAlert className="h-4 w-4 text-rose-500" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-2xl font-black text-rose-600 font-mono tabular-nums">
+                    {scopeMetrics['Nấu'].totalConvertedLossMinutes}
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">phút quy đổi</span>
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  {operationalKpiStats.stopCookMinutes}p dừng · {operationalKpiStats.reduceCookMinutes}p giảm tải
+                </div>
               </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-rose-600 font-mono tabular-nums">
-                  {scopeMetrics['Nấu'].totalConvertedLossMinutes}
-                </span>
-                <span className="text-xs text-gray-500 font-medium">phút quy đổi</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500 flex items-center justify-between">
-                <span>Trạng thái:</span>
-                <span className="font-semibold text-gray-800">
-                  {scopeMetrics['Nấu'].totalConvertedLossMinutes > 0 ? 'Có dừng/giảm nấu' : 'Bình thường'}
-                </span>
-              </div>
-            </div>
-
-            {/* Loss Cấp tương */}
-            <div className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs">
-              <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
-                <span>Loss Cấp Tương ĐG</span>
-                <RotateCw className="h-4 w-4 text-teal-600" />
-              </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-teal-700 font-mono tabular-nums">
-                  {scopeMetrics['Cấp tương'].totalConvertedLossMinutes}
-                </span>
-                <span className="text-xs text-gray-500 font-medium">phút quy đổi</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500 flex items-center justify-between">
-                <span>Tương xuống ĐG:</span>
-                <span className="font-semibold text-gray-800">
-                  {scopeMetrics['Cấp tương'].totalConvertedLossMinutes > 0 ? 'Dừng cấp tương' : 'Thông suốt'}
+              <div className="mt-3 pt-2.5 border-t border-gray-100 text-xs flex items-center justify-between">
+                <span className="text-gray-400 font-medium">Khử chồng lấn:</span>
+                <span className="font-semibold text-gray-700 font-mono">
+                  {scopeMetrics['Nấu'].overlapSavedMinutes > 0
+                    ? `-${scopeMetrics['Nấu'].overlapSavedMinutes}p trùng`
+                    : 'Đã chuẩn hóa'}
                 </span>
               </div>
             </div>
 
-            {/* Loss Đóng gói */}
-            <div className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs">
-              <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
-                <span>Loss Phạm vi Đóng Gói</span>
-                <Layers className="h-4 w-4 text-amber-600" />
+            {/* Health Card 3: Loss Cấp Tương cho ĐG (Deduplicated) */}
+            <div
+              onClick={() => onNavigateToTab('record', 'loss')}
+              className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs hover:border-teal-200 transition-all cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                  <span>Loss Cấp Tương ĐG</span>
+                  <RotateCw className="h-4 w-4 text-teal-600" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-2xl font-black text-teal-700 font-mono tabular-nums">
+                    {scopeMetrics['Cấp tương'].totalConvertedLossMinutes}
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">phút quy đổi</span>
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  {operationalKpiStats.stopFeedPackingMinutes}p dừng bơm · {operationalKpiStats.coolingCongestionDuration}p bồn nguội
+                </div>
               </div>
-              <div className="mt-2 flex items-baseline gap-1">
-                <span className="text-3xl font-black text-amber-700 font-mono tabular-nums">
-                  {scopeMetrics['Đóng gói'].totalConvertedLossMinutes}
+              <div className="mt-3 pt-2.5 border-t border-gray-100 text-xs flex items-center justify-between">
+                <span className="text-gray-400 font-medium">Độc lập:</span>
+                <span className="font-semibold text-teal-800">Không suy ra Dừng ĐG</span>
+              </div>
+            </div>
+
+            {/* Health Card 4: Loss Đóng Gói (Deduplicated) */}
+            <div
+              onClick={() => onNavigateToTab('record', 'loss')}
+              className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs hover:border-amber-200 transition-all cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                  <span>Loss Phạm vi Đóng Gói</span>
+                  <Layers className="h-4 w-4 text-amber-600" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-1">
+                  <span className="text-2xl font-black text-amber-700 font-mono tabular-nums">
+                    {scopeMetrics['Đóng gói'].totalConvertedLossMinutes}
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">phút quy đổi</span>
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  {scopeMetrics['Đóng gói'].impactCount} khoảng ảnh hưởng ĐG
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-gray-100 text-xs flex items-center justify-between">
+                <span className="text-gray-400 font-medium">Độc lập:</span>
+                <span className="font-semibold text-gray-700">Không cộng gộp sai</span>
+              </div>
+            </div>
+
+            {/* Health Card 5: AM Checklist & Runtime/CIP */}
+            <div
+              onClick={() => onNavigateToTab('record', 'am')}
+              className="rounded-2xl bg-white p-4 border border-gray-200/70 shadow-2xs hover:border-emerald-200 transition-all cursor-pointer flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
+                  <span>AM & Runtime/CIP</span>
+                  <ClipboardCheck className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-gray-900 font-mono tabular-nums">
+                    {amCompletedCount}/{totalTargetEquipments}
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    ({amComplianceRate}%)
+                  </span>
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Checklist đúng ca & ngày
+                </div>
+              </div>
+              <div className="mt-3 pt-2.5 border-t border-gray-100 text-xs flex items-center justify-between">
+                <span className="text-gray-400 font-medium">Cảnh báo:</span>
+                <span className={`font-semibold ${highRuntimeLines.length > 0 ? 'text-[#D97706]' : 'text-gray-600'}`}>
+                  {highRuntimeLines.length > 0 ? `${highRuntimeLines.length} line > 90%` : `${activeCips.length} trạm CIP`}
                 </span>
-                <span className="text-xs text-gray-500 font-medium">phút quy đổi</span>
-              </div>
-              <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500 flex items-center justify-between">
-                <span>Độc lập:</span>
-                <span className="font-semibold text-gray-800">Không cộng gộp sai</span>
               </div>
             </div>
           </div>
