@@ -5,6 +5,10 @@ import {
   ImpactScope,
   ImpactConfirmationStatus,
   EventImpactItem,
+  ReadinessConclusion,
+  Equipment,
+  ChecklistItemConfig,
+  EquipmentReadinessLog,
 } from './types';
 
 export const SHIFTS: ShiftInfo[] = [
@@ -514,5 +518,201 @@ export function calculateScopeLossMetrics(
   });
 
   return scopes;
+}
+
+/**
+ * Splits an event/impact time interval into shift-bounded segments:
+ * Slices cleanly at 06:00, 14:00, 22:00.
+ * Preserves the exact same event / impact identity while attributing duration to respective shifts.
+ */
+export interface ShiftAllocatedSegment {
+  productionDate: string;
+  shiftId: ShiftId;
+  startIso: string;
+  endIso: string;
+  durationMinutes: number;
+}
+
+export function splitIntervalByShiftBoundaries(
+  startIso: string,
+  endIso: string | null,
+  nowMs: number = Date.now()
+): ShiftAllocatedSegment[] {
+  const startMs = new Date(startIso).getTime();
+  const endMs = endIso ? new Date(endIso).getTime() : nowMs;
+  if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) return [];
+
+  const segments: ShiftAllocatedSegment[] = [];
+  let cur = startMs;
+
+  while (cur < endMs) {
+    const d = new Date(cur);
+    const h = d.getHours();
+
+    // Determine the next upcoming boundary (06:00, 14:00, 22:00)
+    const nextBoundary = new Date(d);
+    if (h < 6) {
+      nextBoundary.setHours(6, 0, 0, 0);
+    } else if (h < 14) {
+      nextBoundary.setHours(14, 0, 0, 0);
+    } else if (h < 22) {
+      nextBoundary.setHours(22, 0, 0, 0);
+    } else {
+      nextBoundary.setDate(nextBoundary.getDate() + 1);
+      nextBoundary.setHours(6, 0, 0, 0);
+    }
+
+    const nextHop = Math.min(endMs, nextBoundary.getTime());
+    const durationMinutes = Math.max(0, (nextHop - cur) / 60000);
+
+    if (durationMinutes > 0) {
+      // Middle of segment to reliably calculate production date & shift
+      const midDate = new Date(cur + (nextHop - cur) / 2);
+      segments.push({
+        productionDate: getProductionDate(midDate),
+        shiftId: getCurrentShift(midDate),
+        startIso: new Date(cur).toISOString(),
+        endIso: new Date(nextHop).toISOString(),
+        durationMinutes: Math.round(durationMinutes),
+      });
+    }
+
+    cur = nextHop;
+  }
+
+  return segments;
+}
+
+/**
+ * Calculates duration and converted loss minutes of an impact allocated strictly
+ * within a target production date and shift.
+ */
+export function calculateShiftAllocatedImpact(
+  impact: EventImpactItem,
+  targetProductionDate: string,
+  targetShiftId: ShiftId,
+  nowMs: number = Date.now()
+): { durationMinutes: number; convertedLossMinutes: number | null } {
+  if (impact.impactType === 'NONE') {
+    return { durationMinutes: 0, convertedLossMinutes: 0 };
+  }
+
+  const segments = splitIntervalByShiftBoundaries(impact.impactStartedAt, impact.impactEndedAt, nowMs);
+  const matched = segments.filter(
+    (s) => s.productionDate === targetProductionDate && s.shiftId === targetShiftId
+  );
+
+  const durationMinutes = matched.reduce((sum, s) => sum + s.durationMinutes, 0);
+
+  if (impact.confirmationStatus === 'INSUFFICIENT_DATA' || impact.impactPercent === null) {
+    return { durationMinutes, convertedLossMinutes: null };
+  }
+
+  const percent = Math.min(100, Math.max(0, impact.impactPercent));
+  const convertedLossMinutes = Math.round((durationMinutes * percent) / 100);
+
+  return { durationMinutes, convertedLossMinutes };
+}
+
+/**
+ * Evaluates line readiness conclusion strictly based on equipment checklist configs and logs:
+ * NEVER concludes READY if any mandatory equipment is unchecked, not configured, or missing data.
+ */
+export function evaluateLineReadinessConclusion(
+  lineEquipments: Equipment[],
+  checklistConfigs: ChecklistItemConfig[],
+  lineReadinessLogs: EquipmentReadinessLog[],
+  targetDate: string,
+  targetShift: ShiftId
+): {
+  conclusion: ReadinessConclusion;
+  totalEquipments: number;
+  readyCount: number;
+  conditionalCount: number;
+  notReadyCount: number;
+  uncheckedCount: number;
+  notConfiguredCount: number;
+  unreadyEquipmentNames: string[];
+} {
+  if (lineEquipments.length === 0) {
+    return {
+      conclusion: 'NOT_CONFIGURED',
+      totalEquipments: 0,
+      readyCount: 0,
+      conditionalCount: 0,
+      notReadyCount: 0,
+      uncheckedCount: 0,
+      notConfiguredCount: 0,
+      unreadyEquipmentNames: [],
+    };
+  }
+
+  let readyCount = 0;
+  let conditionalCount = 0;
+  let notReadyCount = 0;
+  let uncheckedCount = 0;
+  let notConfiguredCount = 0;
+  const unreadyEquipmentNames: string[] = [];
+
+  lineEquipments.forEach((eq) => {
+    const hasConfig = checklistConfigs.some((c) => c.equipmentId === eq.id && c.active);
+    if (!hasConfig) {
+      notConfiguredCount++;
+      unreadyEquipmentNames.push(`${eq.name} (Chưa cấu hình câu hỏi)`);
+      return;
+    }
+
+    const log = lineReadinessLogs.find(
+      (l) => l.equipmentId === eq.id && l.productionDate === targetDate && l.shiftId === targetShift
+    );
+
+    if (!log) {
+      uncheckedCount++;
+      unreadyEquipmentNames.push(`${eq.name} (Chưa kiểm tra đầu ca)`);
+      return;
+    }
+
+    if (log.conclusion === 'READY') {
+      readyCount++;
+    } else if (log.conclusion === 'CONDITIONAL') {
+      conditionalCount++;
+      unreadyEquipmentNames.push(`${eq.name} (Có điều kiện theo dõi)`);
+    } else if (log.conclusion === 'NOT_READY') {
+      notReadyCount++;
+      unreadyEquipmentNames.push(`${eq.name} (Không đạt - Cần xử lý)`);
+    } else if (log.conclusion === 'UNCHECKED') {
+      uncheckedCount++;
+      unreadyEquipmentNames.push(`${eq.name} (Chưa hoàn thành kiểm tra)`);
+    } else {
+      notConfiguredCount++;
+      unreadyEquipmentNames.push(`${eq.name} (Chưa cấu hình đầy đủ)`);
+    }
+  });
+
+  let conclusion: ReadinessConclusion = 'READY';
+  if (notReadyCount > 0) {
+    conclusion = 'NOT_READY';
+  } else if (conditionalCount > 0) {
+    conclusion = 'CONDITIONAL';
+  } else if (uncheckedCount > 0) {
+    conclusion = 'UNCHECKED';
+  } else if (notConfiguredCount > 0) {
+    conclusion = 'NOT_CONFIGURED';
+  } else if (readyCount === lineEquipments.length) {
+    conclusion = 'READY';
+  } else {
+    conclusion = 'UNCHECKED';
+  }
+
+  return {
+    conclusion,
+    totalEquipments: lineEquipments.length,
+    readyCount,
+    conditionalCount,
+    notReadyCount,
+    uncheckedCount,
+    notConfiguredCount,
+    unreadyEquipmentNames,
+  };
 }
 

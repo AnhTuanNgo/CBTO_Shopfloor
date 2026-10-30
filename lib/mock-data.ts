@@ -19,6 +19,7 @@ import {
   ForcedCIPRule,
   CIPTypeMaster,
   PostCipInspection,
+  LineShiftReception,
 } from './types';
 import { getProductionDate } from './date-utils';
 
@@ -1433,3 +1434,31 @@ export const INITIAL_POST_CIP_INSPECTIONS: PostCipInspection[] = [
     permissionGranted: false,
   },
 ];
+
+export const INITIAL_LINE_RECEPTIONS: LineShiftReception[] = [
+  {
+    id: `${getProductionDate()}_SHIFT_A_LINE_01`,
+    plantId: 'CBTO_PLANT',
+    lineId: 'LINE_01',
+    productionDate: getProductionDate(),
+    shiftId: 'SHIFT_A',
+    receiverName: 'Trần Minh Tuấn (Tổ trưởng)',
+    receivedAt: new Date(now.getTime() - 2.8 * 3600 * 1000).toISOString(),
+    lineConditionsNote: 'Theo dõi áp lực van hơi Steam và độ rung cánh khuấy bồn nấu 1.',
+    overallConclusion: 'CONDITIONAL',
+    updatedAt: now.toISOString(),
+  },
+  {
+    id: `${getProductionDate()}_SHIFT_A_LINE_02`,
+    plantId: 'CBTO_PLANT',
+    lineId: 'LINE_02',
+    productionDate: getProductionDate(),
+    shiftId: 'SHIFT_A',
+    receiverName: 'Nguyễn Văn Hùng',
+    receivedAt: new Date(now.getTime() - 2.7 * 3600 * 1000).toISOString(),
+    lineConditionsNote: 'Tình trạng chuyền bình thường, sẵn sàng chạy mẻ tương ớt Sriracha.',
+    overallConclusion: 'READY',
+    updatedAt: now.toISOString(),
+  },
+];
+

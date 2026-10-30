@@ -155,17 +155,35 @@ export interface AMChecklist {
   createdAt: string;
 }
 
+export interface LineShiftReception {
+  id: string; // key: `${productionDate}_${shiftId}_${lineId}`
+  plantId: string;
+  lineId: string;
+  productionDate: string; // YYYY-MM-DD
+  shiftId: ShiftId;
+  receiverName: string;   // Người nhận ca
+  receivedAt: string;     // Thời gian nhận ca thực tế (ISO)
+  lineConditionsNote?: string; // Điều kiện theo dõi chung toàn line
+  overallConclusion?: ReadinessConclusion;
+  updatedAt: string;
+}
+
+export type AbnormalCategory = 'Thiết bị' | 'Công nghệ' | 'Sản xuất';
+
 export interface AbnormalLog {
   id: string;
   plantId: string;
   lineId: string;
   equipmentId: string;
   equipmentName?: string;
+  category?: AbnormalCategory; // 'Thiết bị' | 'Công nghệ' | 'Sản xuất'
+  abnormalType: string;
+  factDescription?: string;   // FACT: Sự việc/hiện tượng quan sát thực tế
+  assessmentNote?: string;    // ĐÁNH GIÁ: Nhận định ban đầu (tùy chọn)
+  description?: string;       // Legacy display fallback
+  occurredAt: string;         // ISO - Thời điểm xảy ra thực tế
   productionDate: string;
   shiftId: ShiftId;
-  occurredAt: string; // ISO
-  abnormalType: string;
-  description: string;
   reportedBy: string;
   reportedByName: string;
   sourceAmId?: string;
@@ -228,11 +246,20 @@ export type LossGroup =
   | 'Vệ sinh'
   | 'Khác';
 
+export interface LossAuditEntry {
+  changedAt: string;
+  changedBy: string;
+  changedByName: string;
+  action: 'CREATE' | 'UPDATE_EVENT' | 'CONFIRM_IMPACT' | 'CLOSE_EVENT' | 'DELETE_IMPACT' | 'ADD_IMPACT';
+  note: string;
+}
+
 export interface LossLog {
   id: string; // eventId
   plantId: string;
   lineId: string;
-  skuId: string;
+  skuId?: string; // Không tự gán SKU khi chưa xác định
+  runtimeSessionId?: string; // Phiên runtime đang chạy nếu có
   equipmentId: string;
   lossGroup: LossGroup; // 9 nhóm nguyên nhân MVP
   causeCode?: string;
@@ -252,6 +279,7 @@ export interface LossLog {
   shiftId: ShiftId;
   reportedBy: string;
   reportedByName: string;
+  auditTrail?: LossAuditEntry[];
   createdAt: string;
   updatedAt?: string;
 }
@@ -273,9 +301,14 @@ export interface OperationLog {
   skuId?: string;
   productionDate: string;
   shiftId: ShiftId;
-  occurredAt: string; // ISO
+  occurredAt: string; // ISO - Cho phép chọn thời điểm xảy ra thực tế
   eventGroup: OperationEventGroup;
-  content: string;
+  factDescription?: string; // FACT: Diễn biến sự việc thực tế
+  assessmentNote?: string;  // ĐÁNH GIÁ: Nhận định ban đầu hoặc dự đoán (tùy chọn)
+  parameterName?: string;   // Tên chỉ số theo dõi (tùy chọn)
+  parameterValue?: number | string; // Giá trị định lượng (tùy chọn)
+  parameterUnit?: string;   // Đơn vị đo (tùy chọn)
+  content: string;          // Nội dung hiển thị tóm tắt
   sourceType?: string;
   sourceId?: string;
   reportedBy: string;
@@ -380,6 +413,7 @@ export interface WorkSchedule {
   shiftIds: ShiftId[];
   lineIds: string[];
   fileUrl: string;
+  fileData?: string; // Base64 data URL for uploaded image/PDF
   fileName: string;
   mimeType: string;
   fileSizeKb: number;

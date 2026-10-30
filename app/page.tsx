@@ -35,6 +35,8 @@ function AppContent() {
       if (sub) setRecordSubTab(sub as RecordSubTab);
     } else if (tab === 'runtime') {
       setActiveTab('runtime');
+    } else if (tab === 'log') {
+      setActiveTab('log');
     } else if (tab === 'handover') {
       setActiveTab('handover');
     } else if (tab === 'more') {
@@ -81,6 +83,8 @@ function AppContent() {
             {recordSubTab === 'log' && <OperationLogModule />}
           </div>
         )}
+
+        {activeTab === 'log' && <OperationLogModule />}
 
         {activeTab === 'runtime' && <RuntimeCipModule />}
 

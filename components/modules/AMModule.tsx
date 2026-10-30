@@ -31,7 +31,141 @@ import {
   Sliders,
   History,
   Calendar,
+  Copy,
+  Save,
 } from 'lucide-react';
+
+interface LineReceptionFormProps {
+  lineId: string;
+  lineName: string;
+  productionDate: string;
+  shiftId: string;
+  defaultReceiver: string;
+  existingReception?: {
+    receiverName: string;
+    receivedAt: string;
+    lineConditionsNote?: string;
+  };
+  onSave: (data: { receiverName: string; receivedAt: string; lineConditionsNote?: string }) => void;
+  onOpenCopy: () => void;
+}
+
+function LineReceptionForm({
+  lineId,
+  lineName,
+  productionDate,
+  shiftId,
+  defaultReceiver,
+  existingReception,
+  onSave,
+  onOpenCopy,
+}: LineReceptionFormProps) {
+  const [receiver, setReceiver] = useState(existingReception?.receiverName || defaultReceiver);
+  const [receivedAt, setReceivedAt] = useState(() => {
+    if (existingReception?.receivedAt) {
+      return existingReception.receivedAt.slice(0, 16);
+    }
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+  const [conditions, setConditions] = useState(existingReception?.lineConditionsNote || '');
+  const [savedNotice, setSavedNotice] = useState('');
+
+  const handleSave = () => {
+    if (!receiver.trim()) return;
+    const d = receivedAt ? new Date(receivedAt) : new Date();
+    const iso = !isNaN(d.getTime()) ? d.toISOString() : new Date().toISOString();
+    onSave({
+      receiverName: receiver.trim(),
+      receivedAt: iso,
+      lineConditionsNote: conditions.trim() || undefined,
+    });
+    setSavedNotice('Đã lưu thông tin tiếp nhận ca & điều kiện theo dõi Line thành công!');
+    setTimeout(() => setSavedNotice(''), 3500);
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-2xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-50 text-[#E31837]">
+            <UserCheck className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-gray-900">Nhận ca & Điều kiện bàn giao cấp Line</h3>
+            <p className="text-[11px] text-gray-500">
+              Lưu 1 lần duy nhất cho toàn bộ Chuyền {lineName} ({productionDate} • Ca {shiftId}). Không phải nhập lặp lại từng máy.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {savedNotice && (
+            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+              ✓ {savedNotice}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onOpenCopy}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all cursor-pointer"
+          >
+            <Copy className="h-3.5 w-3.5 text-gray-500" />
+            <span>Sao chép mẫu Checklist</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-[#E31837] hover:bg-red-700 rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>Lưu thông tin nhận ca Line</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3">
+        <div>
+          <label className="block text-[11px] font-bold text-gray-600">
+            Người nhận ca Chuyền <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={receiver}
+            onChange={(e) => setReceiver(e.target.value)}
+            placeholder="VD: Nguyễn Văn A (Tổ trưởng)"
+            className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-[#E31837] focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-gray-600">
+            Thời gian nhận ca thực tế <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="datetime-local"
+            value={receivedAt}
+            onChange={(e) => setReceivedAt(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-[#E31837] focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-gray-600">
+            Điều kiện / Lưu ý theo dõi trong ca
+          </label>
+          <input
+            type="text"
+            value={conditions}
+            onChange={(e) => setConditions(e.target.value)}
+            placeholder="VD: Cần theo dõi nhiệt độ tiệt trùng bồn B02..."
+            className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-[#E31837] focus:outline-none"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function AMModule() {
   const {
@@ -47,6 +181,9 @@ export function AMModule() {
     saveReadinessLog,
     getEquipmentReadiness,
     getLineReadinessStatus,
+    copyChecklistTemplate,
+    saveLineShiftReception,
+    getLineShiftReception,
     addAbnormalLog,
   } = useAppStore();
 
@@ -58,6 +195,18 @@ export function AMModule() {
     () => getLineReadinessStatus(selectedLineId, selectedProductionDate, selectedShiftId),
     [getLineReadinessStatus, selectedLineId, selectedProductionDate, selectedShiftId]
   );
+
+  // Line Shift Reception Header State (Requirement 2)
+  const currentLineReception = useMemo(
+    () => getLineShiftReception(selectedLineId, selectedProductionDate, selectedShiftId),
+    [getLineShiftReception, selectedLineId, selectedProductionDate, selectedShiftId]
+  );
+
+  // Copy Checklist Modal State
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [copySourceEqId, setCopySourceEqId] = useState<string>('');
+  const [copyTargetEqIds, setCopyTargetEqIds] = useState<string[]>([]);
+  const [copyStatusMsg, setCopyStatusMsg] = useState('');
 
   // Modal inspection state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -84,9 +233,13 @@ export function AMModule() {
     const configs = checklistConfigs.filter((c) => c.equipmentId === eqId && c.active);
 
     const now = new Date();
-    setReceiverName(existingLog?.receiverName || `${currentUser.displayName} (${currentUser.employeeCode})`);
-    setInspectorName(existingLog?.inspectorName || `${currentUser.displayName} (${currentUser.employeeCode})`);
-    setInspectedTime(existingLog?.inspectedAt || now.toISOString());
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const localNow = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    // Receiver defaults to Line-level reception receiver; Inspector is the person filling this check!
+    setReceiverName(existingLog?.receiverName || currentLineReception?.receiverName || `${currentUser.displayName}`);
+    setInspectorName(existingLog?.inspectorName || `${currentUser.displayName}`);
+    setInspectedTime(existingLog?.inspectedAt ? existingLog.inspectedAt.slice(0, 16) : localNow);
     setConditionsNote(existingLog?.conditionsNote || '');
     setApproverName(existingLog?.approverName || (currentUser.role === 'SUPERVISOR' ? currentUser.displayName : ''));
     setFormError('');
@@ -129,6 +282,9 @@ export function AMModule() {
           const mid = Number(((it.minVal + it.maxVal) / 2).toFixed(1));
           return { ...it, measuredVal: mid, isOutOfRange: false, isNA: false, note: '' };
         }
+        if (it.responseType === 'TEXT') {
+          return { ...it, textVal: 'Bình thường', isNA: false, note: '' };
+        }
         return it;
       })
     );
@@ -138,9 +294,13 @@ export function AMModule() {
   const evaluatedConclusion: ReadinessConclusion = useMemo(() => {
     if (itemResults.length === 0) return 'NOT_CONFIGURED';
     const hasUnfilled = itemResults.some((it) => {
-      if (it.isNA) return false;
-      if (it.responseType === 'BOOLEAN' && it.booleanVal === null) return true;
+      const cfg = checklistConfigs.find((c) => c.id === it.itemId);
+      const isMandatory = cfg ? cfg.isMandatory : true;
+      if (it.isNA) return !it.naReason?.trim();
+      if (!isMandatory) return false;
+      if (it.responseType === 'BOOLEAN' && (it.booleanVal === null || it.booleanVal === undefined)) return true;
       if (it.responseType === 'MEASUREMENT' && (it.measuredVal === null || it.measuredVal === undefined)) return true;
+      if (it.responseType === 'TEXT' && (!it.textVal || !it.textVal.trim())) return true;
       return false;
     });
     if (hasUnfilled) return 'UNCHECKED';
@@ -158,7 +318,7 @@ export function AMModule() {
     if (hasConditional) return 'CONDITIONAL';
 
     return 'READY';
-  }, [itemResults]);
+  }, [itemResults, checklistConfigs]);
 
   // Update item result
   const handleUpdateBoolean = (itemId: string, val: 'PASS' | 'FAIL') => {
@@ -190,9 +350,15 @@ export function AMModule() {
     );
   };
 
+  const handleUpdateText = (itemId: string, val: string) => {
+    setItemResults((prev) =>
+      prev.map((it) => (it.itemId === itemId ? { ...it, textVal: val, isNA: false } : it))
+    );
+  };
+
   const handleToggleNA = (itemId: string, isNA: boolean) => {
     setItemResults((prev) =>
-      prev.map((it) => (it.itemId === itemId ? { ...it, isNA, booleanVal: null, measuredVal: null } : it))
+      prev.map((it) => (it.itemId === itemId ? { ...it, isNA, booleanVal: null, measuredVal: null, textVal: '' } : it))
     );
   };
 
@@ -212,7 +378,11 @@ export function AMModule() {
   const handleCreateAbnormalityFromItem = (item: EquipmentReadinessItemResult) => {
     const eq = equipments.find((e) => e.id === selectedEqId);
     const desc = `Phát hiện lỗi khi kiểm tra đầu ca ${eq?.name || ''}: Hạng mục "${item.title}". Giá trị: ${
-      item.responseType === 'MEASUREMENT' ? `${item.measuredVal} ${item.unit || ''} (Chuẩn: ${item.minVal}-${item.maxVal})` : 'FAIL'
+      item.responseType === 'MEASUREMENT'
+        ? `${item.measuredVal} ${item.unit || ''} (Chuẩn: ${item.minVal}-${item.maxVal})`
+        : item.responseType === 'TEXT'
+        ? item.textVal
+        : 'FAIL'
     }. Ghi chú: ${item.note || 'Cần kiểm tra ngay'}`;
 
     const newAbn = addAbnormalLog({
@@ -242,16 +412,20 @@ export function AMModule() {
     }
 
     const unfilled = itemResults.filter((it) => {
+      const cfg = checklistConfigs.find((c) => c.id === it.itemId);
+      const isMandatory = cfg ? cfg.isMandatory : true;
       if (it.isNA) {
         return !it.naReason?.trim();
       }
+      if (!isMandatory) return false;
       if (it.responseType === 'BOOLEAN') return it.booleanVal === null;
       if (it.responseType === 'MEASUREMENT') return it.measuredVal === null;
+      if (it.responseType === 'TEXT') return !it.textVal || !it.textVal.trim();
       return false;
     });
 
     if (unfilled.length > 0) {
-      setFormError(`Còn ${unfilled.length} hạng mục chưa hoàn thành hoặc chưa nêu lý do N/A!`);
+      setFormError(`Còn ${unfilled.length} hạng mục bắt buộc chưa hoàn thành hoặc chưa nêu lý do N/A!`);
       return;
     }
 
@@ -435,6 +609,28 @@ export function AMModule() {
           </div>
         </div>
       </div>
+
+      {/* LINE SHIFT RECEPTION CARD (Nhận ca cấp Chuyền & Điều kiện theo dõi) */}
+      <LineReceptionForm
+        key={`${selectedLineId}-${selectedProductionDate}-${selectedShiftId}`}
+        lineId={selectedLineId}
+        lineName={activeLine?.name || selectedLineId}
+        productionDate={selectedProductionDate}
+        shiftId={selectedShiftId}
+        defaultReceiver={currentUser.displayName}
+        existingReception={currentLineReception}
+        onSave={(data) => {
+          saveLineShiftReception({
+            lineId: selectedLineId,
+            productionDate: selectedProductionDate,
+            shiftId: selectedShiftId,
+            receiverName: data.receiverName,
+            receivedAt: data.receivedAt,
+            lineConditionsNote: data.lineConditionsNote,
+          });
+        }}
+        onOpenCopy={() => setIsCopyModalOpen(true)}
+      />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs">
@@ -803,6 +999,18 @@ export function AMModule() {
                           </div>
                         )}
 
+                        {item.responseType === 'TEXT' && !item.isNA && (
+                          <div className="flex-1 max-w-xs">
+                            <input
+                              type="text"
+                              placeholder="Nhập ghi nhận thực tế..."
+                              value={item.textVal || ''}
+                              onChange={(e) => handleUpdateText(item.itemId, e.target.value)}
+                              className="w-full text-xs px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#E31837]"
+                            />
+                          </div>
+                        )}
+
                         {/* N/A checkbox */}
                         <label className="flex items-center gap-1 text-[11px] font-medium text-gray-500 cursor-pointer ml-2">
                           <input
@@ -1037,6 +1245,121 @@ export function AMModule() {
                 className="px-4 py-2 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl cursor-pointer"
               >
                 Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Copy Checklist Template */}
+      {isCopyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Copy className="h-5 w-5 text-[#E31837]" />
+                <h3 className="text-base font-bold text-gray-900">Sao chép mẫu Checklist giữa thiết bị</h3>
+              </div>
+              <button
+                onClick={() => setIsCopyModalOpen(false)}
+                className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <p className="text-xs text-gray-500">
+                Sao chép cấu hình câu hỏi kiểm tra từ thiết bị nguồn sang các thiết bị đích cùng chủng loại. Lịch sử kiểm tra trước đó được bảo toàn nguyên vẹn.
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700">Thiết bị nguồn có cấu hình:</label>
+                <select
+                  value={copySourceEqId}
+                  onChange={(e) => setCopySourceEqId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-[#E31837] focus:outline-none"
+                >
+                  <option value="">-- Chọn thiết bị nguồn --</option>
+                  {lineEquipments
+                    .filter((eq) => checklistConfigs.some((c) => c.equipmentId === eq.id && c.active))
+                    .map((eq) => {
+                      const count = checklistConfigs.filter((c) => c.equipmentId === eq.id && c.active).length;
+                      return (
+                        <option key={eq.id} value={eq.id}>
+                          {eq.name} ({eq.code}) - {count} hạng mục
+                        </option>
+                      );
+                    })}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Chọn các thiết bị đích cần áp dụng:
+                </label>
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-gray-200 p-2 space-y-1.5 divide-y divide-gray-50">
+                  {lineEquipments
+                    .filter((eq) => eq.id !== copySourceEqId)
+                    .map((eq) => {
+                      const isChecked = copyTargetEqIds.includes(eq.id);
+                      return (
+                        <label
+                          key={eq.id}
+                          className="flex items-center gap-2 p-1.5 hover:bg-gray-50 rounded-lg cursor-pointer text-xs"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setCopyTargetEqIds((prev) => [...prev, eq.id]);
+                              } else {
+                                setCopyTargetEqIds((prev) => prev.filter((id) => id !== eq.id));
+                              }
+                            }}
+                            className="rounded text-[#E31837] focus:ring-[#E31837]"
+                          />
+                          <span className="font-semibold text-gray-800">{eq.name}</span>
+                          <span className="text-[10px] text-gray-400">({eq.code})</span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-2 border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setIsCopyModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!copySourceEqId) {
+                    alert('Vui lòng chọn thiết bị nguồn!');
+                    return;
+                  }
+                  if (copyTargetEqIds.length === 0) {
+                    alert('Vui lòng chọn ít nhất một thiết bị đích!');
+                    return;
+                  }
+                  const res = copyChecklistTemplate(copySourceEqId, copyTargetEqIds);
+                  if (res.success) {
+                    alert(res.message);
+                    setIsCopyModalOpen(false);
+                    setCopyTargetEqIds([]);
+                  } else {
+                    alert(res.message);
+                  }
+                }}
+                className="px-4 py-2 text-xs font-bold text-white bg-[#E31837] hover:bg-red-700 rounded-xl shadow-xs cursor-pointer"
+              >
+                Tiến hành sao chép
               </button>
             </div>
           </div>

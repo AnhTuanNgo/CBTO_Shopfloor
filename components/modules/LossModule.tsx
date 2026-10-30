@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import {
   LossGroup,
@@ -22,6 +22,7 @@ import {
   getImpactLabel,
   getImpactScope,
   getImpactStatusBadge,
+  splitIntervalByShiftBoundaries,
   IMPACT_TYPE_DEFINITIONS,
   SHIFTS,
 } from '@/lib/date-utils';
@@ -185,6 +186,7 @@ export function LossModule() {
     skus,
     getEquipmentsByLine,
     downtimeReasons,
+    runtimes,
     lossLogs,
     startLossLog,
     endLossLog,
@@ -220,11 +222,20 @@ export function LossModule() {
   // Form State: Event & Cause (Step 1)
   // ----------------------------------------------------
   const [formProdDay, setFormProdDay] = useState(selectedProductionDate);
-  const [formSkuId, setFormSkuId] = useState(skus[0]?.id || '');
   const [formShiftId, setFormShiftId] = useState<ShiftId>(selectedShiftId);
   const [formLineId, setFormLineId] = useState(selectedLineId);
   const [formSource, setFormSource] = useState<LossEventSource>('CBTO');
   const [formOriginStage, setFormOriginStage] = useState<LossOriginStage>('Nấu');
+
+  const currentRunningSession = useMemo(() => {
+    return runtimes.find((r) => r.lineId === formLineId && r.status === 'RUNNING');
+  }, [runtimes, formLineId]);
+
+  const [manuallySelectedSkuId, setManuallySelectedSkuId] = useState<string | null>(null);
+  const [manuallySelectedSessionId, setManuallySelectedSessionId] = useState<string | null>(null);
+
+  const formSkuId = manuallySelectedSkuId !== null ? manuallySelectedSkuId : (currentRunningSession?.skuId || '');
+  const formRuntimeSessionId = manuallySelectedSessionId !== null ? manuallySelectedSessionId : (currentRunningSession?.id || '');
 
   const lineEquipments = useMemo(() => getEquipmentsByLine(formLineId), [getEquipmentsByLine, formLineId]);
   const [formEquipmentId, setFormEquipmentId] = useState(lineEquipments[0]?.id || '');
@@ -516,7 +527,8 @@ export function LossModule() {
 
     const res = startLossLog({
       lineId: formLineId,
-      skuId: formSkuId,
+      skuId: formSkuId || undefined,
+      runtimeSessionId: formRuntimeSessionId || undefined,
       equipmentId: formEquipmentId,
       lossGroup: formCategory,
       causeCode: formCauseCode,
@@ -745,6 +757,8 @@ export function LossModule() {
                   value={formLineId}
                   onChange={(e) => {
                     setFormLineId(e.target.value);
+                    setManuallySelectedSkuId(null);
+                    setManuallySelectedSessionId(null);
                     const eqs = getEquipmentsByLine(e.target.value);
                     if (eqs.length > 0) setFormEquipmentId(eqs[0].id);
                   }}
@@ -769,6 +783,38 @@ export function LossModule() {
                   {lineEquipments.map((eq) => (
                     <option key={eq.id} value={eq.id}>
                       {eq.name} ({eq.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Phiên sản xuất & SKU */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-gray-700">Phiên SKU sản xuất</label>
+                  {currentRunningSession && (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      ● Đang chạy
+                    </span>
+                  )}
+                </div>
+                <select
+                  value={formSkuId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setManuallySelectedSkuId(val);
+                    if (currentRunningSession && val === currentRunningSession.skuId) {
+                      setManuallySelectedSessionId(currentRunningSession.id);
+                    } else {
+                      setManuallySelectedSessionId('');
+                    }
+                  }}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50/70 py-2.5 px-3 text-xs font-bold text-gray-800 focus:border-[#E31837] focus:outline-none transition-colors"
+                >
+                  <option value="">-- Không gắn SKU / Ngoài phiên --</option>
+                  {skus.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.code} - {s.name} {currentRunningSession?.skuId === s.id ? '(Đang chạy trên Line)' : ''}
                     </option>
                   ))}
                 </select>

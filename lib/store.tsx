@@ -33,6 +33,8 @@ import {
   CIPTypeMaster,
   PostCipInspection,
   EquipmentReadinessItemResult,
+  LineShiftReception,
+  AbnormalCategory,
 } from './types';
 import {
   CBTO_PLANT_ID,
@@ -56,8 +58,9 @@ import {
   INITIAL_CIP_TYPES,
   INITIAL_FORCED_CIP_RULES,
   INITIAL_POST_CIP_INSPECTIONS,
+  INITIAL_LINE_RECEPTIONS,
 } from './mock-data';
-import { getProductionDate, getCurrentShift, calculateImpactMetrics, getImpactScope } from './date-utils';
+import { getProductionDate, getCurrentShift, calculateImpactMetrics, getImpactScope, evaluateLineReadinessConclusion, formatTime } from './date-utils';
 
 interface AppNotification {
   id: string;
@@ -132,6 +135,19 @@ interface AppStoreContextType {
     uncheckedEquipments: number;
     notConfiguredEquipments: number;
   };
+  copyChecklistTemplate: (sourceEquipmentId: string, targetEquipmentIds: string[]) => { success: boolean; count: number; message?: string };
+
+  // Line-level Shift Reception
+  lineShiftReceptions: LineShiftReception[];
+  saveLineShiftReception: (reception: {
+    lineId: string;
+    productionDate: string;
+    shiftId: ShiftId;
+    receiverName: string;
+    receivedAt: string;
+    lineConditionsNote?: string;
+  }) => { success: boolean; data: LineShiftReception };
+  getLineShiftReception: (lineId: string, date: string, shiftId: ShiftId) => LineShiftReception | undefined;
 
   // Legacy AM Checklists
   amChecklists: AMChecklist[];
@@ -142,8 +158,12 @@ interface AppStoreContextType {
   addAbnormalLog: (data: {
     lineId: string;
     equipmentId: string;
+    category?: AbnormalCategory;
     abnormalType: string;
-    description: string;
+    factDescription?: string;
+    assessmentNote?: string;
+    description?: string;
+    occurredAt?: string;
     sourceAmId?: string;
   }) => AbnormalLog;
   acknowledgeAbnormalLog: (id: string) => void;
@@ -152,7 +172,8 @@ interface AppStoreContextType {
   lossLogs: LossLog[];
   startLossLog: (data: {
     lineId: string;
-    skuId: string;
+    skuId?: string;
+    runtimeSessionId?: string;
     equipmentId: string;
     lossGroup: LossGroup;
     causeCode?: string;
@@ -193,6 +214,12 @@ interface AppStoreContextType {
     skuId?: string;
     eventGroup: OperationEventGroup;
     content: string;
+    factDescription?: string;
+    assessmentNote?: string;
+    parameterName?: string;
+    parameterValue?: number | string;
+    parameterUnit?: string;
+    occurredAt?: string;
     sourceType?: string;
     sourceId?: string;
   }) => OperationLog;
@@ -387,6 +414,9 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [handovers, setHandovers] = useState<ShiftHandover[]>(() => getStored()?.handovers || INITIAL_HANDOVERS);
   const [productionProgress, setProductionProgress] = useState<ProductionProgress[]>(() => getStored()?.productionProgress || INITIAL_PRODUCTION_PROGRESS);
   const [workSchedules, setWorkSchedules] = useState<WorkSchedule[]>(() => getStored()?.workSchedules || INITIAL_WORK_SCHEDULES);
+  const [lineShiftReceptions, setLineShiftReceptions] = useState<LineShiftReception[]>(
+    () => getStored()?.lineShiftReceptions || INITIAL_LINE_RECEPTIONS
+  );
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => getStored()?.notifications || [
     {
@@ -411,6 +441,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           downtimeReasons,
           checklistConfigs,
           readinessLogs,
+          lineShiftReceptions,
           cipTypes,
           forcedCipRules,
           postCipInspections,
@@ -440,6 +471,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       downtimeReasons,
       checklistConfigs,
       readinessLogs,
+      lineShiftReceptions,
       cipTypes,
       forcedCipRules,
       postCipInspections,
@@ -790,58 +822,96 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const getLineReadinessStatus = useCallback(
     (lineId: string, date: string, shiftId: ShiftId) => {
       const lineEquipments = equipments.filter((eq) => eq.lineId === lineId);
-      let checkedEquipments = 0;
-      let readyEquipments = 0;
-      let conditionalEquipments = 0;
-      let notReadyEquipments = 0;
-      let uncheckedEquipments = 0;
-      let notConfiguredEquipments = 0;
-
-      lineEquipments.forEach((eq) => {
-        const hasConfigs = checklistConfigs.some((c) => c.equipmentId === eq.id && c.active);
-        if (!hasConfigs) {
-          notConfiguredEquipments++;
-          return;
-        }
-        const log = readinessLogs.find(
-          (l) => l.equipmentId === eq.id && l.productionDate === date && l.shiftId === shiftId
-        );
-        if (!log) {
-          uncheckedEquipments++;
-        } else {
-          checkedEquipments++;
-          if (log.conclusion === 'READY') readyEquipments++;
-          else if (log.conclusion === 'CONDITIONAL') conditionalEquipments++;
-          else if (log.conclusion === 'NOT_READY') notReadyEquipments++;
-          else uncheckedEquipments++;
-        }
-      });
-
-      let conclusion: ReadinessConclusion = 'READY';
-      if (notReadyEquipments > 0) {
-        conclusion = 'NOT_READY';
-      } else if (conditionalEquipments > 0) {
-        conclusion = 'CONDITIONAL';
-      } else if (uncheckedEquipments > 0) {
-        conclusion = 'UNCHECKED';
-      } else if (lineEquipments.length > 0 && notConfiguredEquipments === lineEquipments.length) {
-        conclusion = 'NOT_CONFIGURED';
-      } else {
-        conclusion = 'READY';
-      }
-
+      const evalRes = evaluateLineReadinessConclusion(lineEquipments, checklistConfigs, readinessLogs, date, shiftId);
       return {
-        conclusion,
-        totalEquipments: lineEquipments.length,
-        checkedEquipments,
-        readyEquipments,
-        conditionalEquipments,
-        notReadyEquipments,
-        uncheckedEquipments,
-        notConfiguredEquipments,
+        conclusion: evalRes.conclusion,
+        totalEquipments: evalRes.totalEquipments,
+        checkedEquipments: evalRes.readyCount + evalRes.conditionalCount + evalRes.notReadyCount,
+        readyEquipments: evalRes.readyCount,
+        conditionalEquipments: evalRes.conditionalCount,
+        notReadyEquipments: evalRes.notReadyCount,
+        uncheckedEquipments: evalRes.uncheckedCount,
+        notConfiguredEquipments: evalRes.notConfiguredCount,
       };
     },
     [equipments, checklistConfigs, readinessLogs]
+  );
+
+  const copyChecklistTemplate = useCallback(
+    (sourceEquipmentId: string, targetEquipmentIds: string[]) => {
+      const sourceConfigs = checklistConfigs.filter((c) => c.equipmentId === sourceEquipmentId && c.active);
+      if (sourceConfigs.length === 0) {
+        return { success: false, count: 0, message: 'Thiết bị nguồn chưa có câu hỏi kiểm tra nào!' };
+      }
+
+      let addedCount = 0;
+      setChecklistConfigs((prev) => {
+        const newConfigs: ChecklistItemConfig[] = [];
+        targetEquipmentIds.forEach((targetEqId) => {
+          const targetEq = equipments.find((e) => e.id === targetEqId);
+          sourceConfigs.forEach((src, idx) => {
+            const exists = prev.some((p) => p.equipmentId === targetEqId && p.code === src.code);
+            if (!exists) {
+              newConfigs.push({
+                ...src,
+                id: `CHK_CP_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 5)}`,
+                equipmentId: targetEqId,
+                lineId: targetEq?.lineId || src.lineId,
+              });
+              addedCount++;
+            }
+          });
+        });
+        const next = [...prev, ...newConfigs];
+        saveStateToStorage({ checklistConfigs: next });
+        return next;
+      });
+
+      return { success: true, count: addedCount, message: `Đã sao chép thành công ${addedCount} hạng mục kiểm tra!` };
+    },
+    [checklistConfigs, equipments, saveStateToStorage]
+  );
+
+  const saveLineShiftReception = useCallback(
+    (data: {
+      lineId: string;
+      productionDate: string;
+      shiftId: ShiftId;
+      receiverName: string;
+      receivedAt: string;
+      lineConditionsNote?: string;
+    }) => {
+      const key = `${data.productionDate}_${data.shiftId}_${data.lineId}`;
+      const nowIso = new Date().toISOString();
+      const newRec: LineShiftReception = {
+        id: key,
+        plantId: selectedPlantId,
+        lineId: data.lineId,
+        productionDate: data.productionDate,
+        shiftId: data.shiftId,
+        receiverName: data.receiverName,
+        receivedAt: data.receivedAt || nowIso,
+        lineConditionsNote: data.lineConditionsNote,
+        updatedAt: nowIso,
+      };
+
+      setLineShiftReceptions((prev) => {
+        const next = [newRec, ...prev.filter((r) => r.id !== key)];
+        saveStateToStorage({ lineShiftReceptions: next });
+        return next;
+      });
+
+      return { success: true, data: newRec };
+    },
+    [selectedPlantId, saveStateToStorage]
+  );
+
+  const getLineShiftReception = useCallback(
+    (lineId: string, date: string, shiftId: ShiftId) => {
+      const key = `${date}_${shiftId}_${lineId}`;
+      return lineShiftReceptions.find((r) => r.id === key);
+    },
+    [lineShiftReceptions]
   );
 
   const saveReadinessLog = useCallback(
@@ -1113,55 +1183,123 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       downtimeReasons?: DowntimeReasonItem[];
     }) => {
       const summary: Record<string, number> = {};
+
+      let finalLines = lines;
       if (data.lines && data.lines.length > 0) {
-        setLines(data.lines);
+        finalLines = [...lines];
+        data.lines.forEach((inL) => {
+          const idx = finalLines.findIndex((l) => l.code === inL.code);
+          if (idx >= 0) {
+            finalLines[idx] = { ...finalLines[idx], name: inL.name, description: inL.description };
+          } else {
+            finalLines.push(inL);
+          }
+        });
+        setLines(finalLines);
         summary['Lines'] = data.lines.length;
       }
+
+      let finalEqs = equipments;
       if (data.equipments && data.equipments.length > 0) {
-        setEquipments(data.equipments);
+        finalEqs = [...equipments];
+        data.equipments.forEach((inE) => {
+          const idx = finalEqs.findIndex((e) => e.code === inE.code);
+          if (idx >= 0) {
+            finalEqs[idx] = { ...finalEqs[idx], name: inE.name, category: inE.category, lineId: inE.lineId || finalEqs[idx].lineId };
+          } else {
+            finalEqs.push(inE);
+          }
+        });
+        setEquipments(finalEqs);
         summary['Thiết bị'] = data.equipments.length;
       }
+
+      let finalSkus = skus;
       if (data.skus && data.skus.length > 0) {
-        setSkus(data.skus);
+        finalSkus = [...skus];
+        data.skus.forEach((inS) => {
+          const idx = finalSkus.findIndex((s) => s.code === inS.code);
+          if (idx >= 0) {
+            finalSkus[idx] = { ...finalSkus[idx], name: inS.name, limitHours: inS.limitHours };
+          } else {
+            finalSkus.push(inS);
+          }
+        });
+        setSkus(finalSkus);
         summary['SKU'] = data.skus.length;
       }
+
       if (data.shifts && data.shifts.length > 0) {
         setShifts(data.shifts);
         summary['Ca làm việc'] = data.shifts.length;
       }
+
+      let finalChecklists = checklistConfigs;
       if (data.checklists && data.checklists.length > 0) {
-        setChecklistConfigs(data.checklists);
+        finalChecklists = [...checklistConfigs];
+        data.checklists.forEach((inC) => {
+          const idx = finalChecklists.findIndex((c) => c.equipmentId === inC.equipmentId && c.code === inC.code);
+          if (idx >= 0) {
+            finalChecklists[idx] = { ...finalChecklists[idx], ...inC, id: finalChecklists[idx].id };
+          } else {
+            finalChecklists.push(inC);
+          }
+        });
+        setChecklistConfigs(finalChecklists);
         summary['Hạng mục kiểm tra'] = data.checklists.length;
       }
+
       if (data.cipTypes && data.cipTypes.length > 0) {
         setCipTypes(data.cipTypes);
         summary['Loại CIP'] = data.cipTypes.length;
       }
+
+      let finalForcedRules = forcedCipRules;
       if (data.forcedCipRules && data.forcedCipRules.length > 0) {
-        setForcedCipRules(data.forcedCipRules);
+        finalForcedRules = [...forcedCipRules];
+        data.forcedCipRules.forEach((inR) => {
+          const idx = finalForcedRules.findIndex(
+            (r) => r.equipmentCode === inR.equipmentCode && r.requiredCipType === inR.requiredCipType
+          );
+          if (idx >= 0) {
+            finalForcedRules[idx] = {
+              ...finalForcedRules[idx],
+              maxDaysSinceLastCip: inR.maxDaysSinceLastCip,
+              maxIdleDaysWithoutCip: inR.maxIdleDaysWithoutCip,
+              active: inR.active,
+              notes: inR.notes,
+            };
+          } else {
+            finalForcedRules.push(inR);
+          }
+        });
+        setForcedCipRules(finalForcedRules);
         summary['Quy tắc CIP'] = data.forcedCipRules.length;
       }
+
       if (data.downtimeReasons && data.downtimeReasons.length > 0) {
         setDowntimeReasons(data.downtimeReasons);
         summary['Lý do dừng máy'] = data.downtimeReasons.length;
       }
+
       saveStateToStorage({
-        ...(data.lines ? { lines: data.lines } : {}),
-        ...(data.equipments ? { equipments: data.equipments } : {}),
-        ...(data.skus ? { skus: data.skus } : {}),
+        ...(data.lines ? { lines: finalLines } : {}),
+        ...(data.equipments ? { equipments: finalEqs } : {}),
+        ...(data.skus ? { skus: finalSkus } : {}),
         ...(data.shifts ? { shifts: data.shifts } : {}),
-        ...(data.checklists ? { checklistConfigs: data.checklists } : {}),
+        ...(data.checklists ? { checklistConfigs: finalChecklists } : {}),
         ...(data.cipTypes ? { cipTypes: data.cipTypes } : {}),
-        ...(data.forcedCipRules ? { forcedCipRules: data.forcedCipRules } : {}),
+        ...(data.forcedCipRules ? { forcedCipRules: finalForcedRules } : {}),
         ...(data.downtimeReasons ? { downtimeReasons: data.downtimeReasons } : {}),
       });
+
       return {
         success: true,
         message: 'Cập nhật cấu hình hệ thống từ file Excel thành công!',
         summary,
       };
     },
-    [saveStateToStorage]
+    [lines, equipments, skus, checklistConfigs, forcedCipRules, saveStateToStorage]
   );
 
   // ----------------------------------------------------
@@ -1171,23 +1309,31 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     (data: {
       lineId: string;
       equipmentId: string;
+      category?: AbnormalCategory;
       abnormalType: string;
-      description: string;
+      factDescription?: string;
+      assessmentNote?: string;
+      description?: string;
+      occurredAt?: string;
       sourceAmId?: string;
     }) => {
       const nowIso = new Date().toISOString();
       const eq = equipments.find((e) => e.id === data.equipmentId);
+      const factText = data.factDescription || data.description || 'Ghi nhận bất thường hiện trường';
       const record: AbnormalLog = {
         id: `ABN_${Date.now()}`,
         plantId: selectedPlantId,
         lineId: data.lineId,
         equipmentId: data.equipmentId,
         equipmentName: eq?.name || 'Thiết bị',
+        category: data.category || 'Thiết bị',
         productionDate: getProductionDate(),
         shiftId: getCurrentShift(),
-        occurredAt: nowIso,
+        occurredAt: data.occurredAt || nowIso,
         abnormalType: data.abnormalType,
-        description: data.description,
+        factDescription: factText,
+        assessmentNote: data.assessmentNote,
+        description: factText,
         reportedBy: currentUser.uid,
         reportedByName: currentUser.displayName,
         sourceAmId: data.sourceAmId,
@@ -1231,7 +1377,8 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const startLossLog = useCallback(
     (data: {
       lineId: string;
-      skuId: string;
+      skuId?: string;
+      runtimeSessionId?: string;
       equipmentId: string;
       lossGroup: LossGroup;
       causeCode?: string;
@@ -1317,7 +1464,8 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         id: eventId,
         plantId: selectedPlantId,
         lineId: data.lineId,
-        skuId: data.skuId,
+        skuId: data.skuId || undefined,
+        runtimeSessionId: data.runtimeSessionId,
         equipmentId: data.equipmentId,
         lossGroup: data.lossGroup,
         causeCode: data.causeCode || '',
@@ -1336,6 +1484,15 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         shiftId: data.shiftId || getCurrentShift(),
         reportedBy: currentUser.uid,
         reportedByName: currentUser.displayName,
+        auditTrail: [
+          {
+            changedAt: nowIso,
+            changedBy: currentUser.uid,
+            changedByName: currentUser.displayName,
+            action: 'CREATE',
+            note: `Ghi nhận sự cố mới nhóm ${data.lossGroup}: ${data.note || 'Không có ghi chú'}`,
+          },
+        ],
         createdAt: nowIso,
       };
 
@@ -1389,6 +1546,17 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           return imp;
         });
 
+        const auditTrail = [
+          ...(target.auditTrail || []),
+          {
+            changedAt: nowIso,
+            changedBy: currentUser.uid,
+            changedByName: currentUser.displayName,
+            action: 'CLOSE_EVENT' as const,
+            note: `Đóng sự cố vào thời điểm ${nowIso}`,
+          },
+        ];
+
         const next = prev.map((item) =>
           item.id === id
             ? {
@@ -1396,6 +1564,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
                 endedAt: nowIso,
                 durationMinutes,
                 impacts: nextImpacts,
+                auditTrail,
                 updatedAt: new Date().toISOString(),
               }
             : item
@@ -1407,7 +1576,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       if (errorMsg) return { success: false, message: errorMsg };
       return { success: true };
     },
-    [saveStateToStorage]
+    [currentUser, saveStateToStorage]
   );
 
   const updateLossLog = useCallback(
@@ -1435,10 +1604,21 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         };
       });
 
+      const auditTrail = [
+        ...(log.auditTrail || []),
+        {
+          changedAt: new Date().toISOString(),
+          changedBy: currentUser.uid,
+          changedByName: currentUser.displayName,
+          action: 'UPDATE_EVENT' as const,
+          note: 'Cập nhật thông tin sự cố / tác động vận hành',
+        },
+      ];
+
       setLossLogs((prev) => {
         const next = prev.map((item) =>
           item.id === log.id
-            ? { ...log, impacts: updatedImpacts, updatedAt: new Date().toISOString() }
+            ? { ...log, impacts: updatedImpacts, auditTrail, updatedAt: new Date().toISOString() }
             : item
         );
         saveStateToStorage({ lossLogs: next });
@@ -1447,7 +1627,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     },
-    [saveStateToStorage]
+    [currentUser, saveStateToStorage]
   );
 
   const deleteLossLog = useCallback(
@@ -1591,6 +1771,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
     [saveStateToStorage]
   );
 
+
   // ----------------------------------------------------
   // Module 4: Operation Logs
   // ----------------------------------------------------
@@ -1600,10 +1781,17 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       skuId?: string;
       eventGroup: OperationEventGroup;
       content: string;
+      factDescription?: string;
+      assessmentNote?: string;
+      parameterName?: string;
+      parameterValue?: number | string;
+      parameterUnit?: string;
+      occurredAt?: string;
       sourceType?: string;
       sourceId?: string;
     }) => {
       const nowIso = new Date().toISOString();
+      const factText = data.factDescription || data.content;
       const record: OperationLog = {
         id: `LOG_${Date.now()}`,
         plantId: selectedPlantId,
@@ -1611,9 +1799,14 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         skuId: data.skuId,
         productionDate: getProductionDate(),
         shiftId: getCurrentShift(),
-        occurredAt: nowIso,
+        occurredAt: data.occurredAt || nowIso,
         eventGroup: data.eventGroup,
-        content: data.content,
+        factDescription: factText,
+        assessmentNote: data.assessmentNote,
+        parameterName: data.parameterName,
+        parameterValue: data.parameterValue,
+        parameterUnit: data.parameterUnit,
+        content: data.content || factText,
         sourceType: data.sourceType,
         sourceId: data.sourceId,
         reportedBy: currentUser.uid,
@@ -1640,6 +1833,66 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       const sku = skus.find((s) => s.id === skuId);
       if (!sku) return { success: false, message: 'SKU không hợp lệ!' };
 
+      // 1. Condition check: Is line currently in active CIP?
+      const activeCip = cips.find(
+        (c) => c.lineId === lineId && (c.status === 'IN_CIP' || c.status === 'POST_CIP_SAMPLING')
+      );
+      if (activeCip) {
+        if (activeCip.status === 'IN_CIP') {
+          return {
+            success: false,
+            message: `Line đang trong chu trình CIP (${activeCip.note || 'Đang rửa'}). Không thể bắt đầu phiên sản xuất mới!`,
+          };
+        }
+        if (activeCip.status === 'POST_CIP_SAMPLING') {
+          const inspection = postCipInspections.find((i) => i.cipTrackingId === activeCip.id);
+          if (!inspection || inspection.qcResult !== 'PASSED' || !inspection.permissionGranted) {
+            return {
+              success: false,
+              message: 'Line đang trong giai đoạn lấy mẫu Post-CIP và chưa có xác nhận QC ĐẠT hoặc chưa được cấp phép sản xuất tiếp!',
+            };
+          }
+        }
+      }
+
+      // 2. Condition check: Forced CIP rules for this line's equipment
+      const nowTime = Date.now();
+      const lineRules = forcedCipRules.filter((r) => r.lineId === lineId && r.active);
+      for (const rule of lineRules) {
+        if (!rule.lastCipAt) {
+          // Missing data indicator
+          continue;
+        }
+        const lastCipMs = new Date(rule.lastCipAt).getTime();
+        const daysSinceCip = (nowTime - lastCipMs) / (24 * 3600 * 1000);
+        if (daysSinceCip >= rule.maxDaysSinceLastCip) {
+          return {
+            success: false,
+            message: `Thiết bị ${rule.equipmentCode} đã vượt quá ${rule.maxDaysSinceLastCip} ngày chưa CIP (thực tế: ${daysSinceCip.toFixed(1)} ngày). Bắt buộc phải thực hiện ${rule.requiredCipType} trước khi chạy!`,
+          };
+        }
+
+        if (rule.lastRunAt) {
+          const lastRunMs = new Date(rule.lastRunAt).getTime();
+          const idleDays = (nowTime - lastRunMs) / (24 * 3600 * 1000);
+          if (idleDays >= rule.maxIdleDaysWithoutCip) {
+            return {
+              success: false,
+              message: `Thiết bị ${rule.equipmentCode} đã dừng máy quá ${rule.maxIdleDaysWithoutCip} ngày không CIP (thực tế: ${idleDays.toFixed(1)} ngày). Bắt buộc phải thực hiện ${rule.requiredCipType} trước khi sản xuất lại!`,
+            };
+          }
+        }
+      }
+
+      // 3. Condition check: Line Readiness status
+      const readiness = getLineReadinessStatus(lineId, getProductionDate(), getCurrentShift());
+      if (readiness.conclusion === 'NOT_READY') {
+        return {
+          success: false,
+          message: 'Line có thiết bị kiểm tra đầu ca KHÔNG ĐẠT (NOT READY). Vui lòng khắc phục sự cố trước khi chạy sản xuất!',
+        };
+      }
+
       const nowIso = new Date().toISOString();
       const newRuntime: RuntimeTracking = {
         id: `RT_${lineId}_${Date.now()}`,
@@ -1654,7 +1907,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         updatedAt: nowIso,
       };
 
-      // Set other running runtimes for this line to COMPLETED
+      // Set prior running runtimes for this line to COMPLETED
       setRuntimes((prev) => {
         const next = [
           newRuntime,
@@ -1663,6 +1916,13 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           ),
         ];
         saveStateToStorage({ runtimes: next });
+        return next;
+      });
+
+      // Update equipment lastRunAt - BUT DO NOT RESET lastCipAt!
+      setForcedCipRules((prev) => {
+        const next = prev.map((r) => (r.lineId === lineId ? { ...r, lastRunAt: nowIso } : r));
+        saveStateToStorage({ forcedCipRules: next });
         return next;
       });
 
@@ -1676,7 +1936,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true };
     },
-    [skus, selectedPlantId, saveStateToStorage, addOperationLog]
+    [skus, cips, postCipInspections, forcedCipRules, getLineReadinessStatus, selectedPlantId, saveStateToStorage, addOperationLog]
   );
 
   const stopForCIP = useCallback(
@@ -1701,7 +1961,8 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
         const lossRes = startLossLog({
           lineId,
-          skuId: activeRt?.skuId || skus[0]?.id || '',
+          skuId: activeRt?.skuId || undefined, // No auto fallback to skus[0]!
+          runtimeSessionId: activeRt?.id,
           equipmentId: cipEquip?.id || 'EQ_CIP',
           lossGroup: 'CIP',
           causeCode: cipType,
@@ -1709,7 +1970,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           originStage: 'CIP',
           description: note,
           downtimeReason: `Dừng máy thực hiện ${cipType}`,
-          note: `Tự động tạo từ quy trình Dừng máy chuyển sang CIP: ${note}`,
+          note: `Ghi nhận từ quy trình Dừng máy chuyển sang CIP: ${note}`,
           affectsLineStop: true,
           startedAt: nowIso,
           endedAt: null,
@@ -1717,16 +1978,16 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
             {
               impactId: `IMP_${Date.now()}_0`,
               eventId: '',
-              impactType: 'STOP_COOK',
-              impactScope: 'Nấu',
+              impactType: 'NONE', // Bỏ mặc định dừng nấu 100%!
+              impactScope: 'Khác',
               affectedLineId: lineId,
-              affectedStage: 'Nấu',
+              affectedStage: 'CIP',
               impactStartedAt: nowIso,
               impactEndedAt: null,
-              impactPercent: 100,
+              impactPercent: null,
               convertedLossMinutes: null,
-              confirmationStatus: 'PROVISIONAL',
-              note: `Dừng nấu hoàn toàn để chạy chu trình ${cipType}`,
+              confirmationStatus: 'INSUFFICIENT_DATA',
+              note: `Chờ người vận hành xác nhận mức ảnh hưởng thực tế cho chu trình ${cipType}`,
             },
           ],
         });
@@ -1795,7 +2056,7 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
 
       return { success: true, cipId, linkedLossId };
     },
-    [runtimes, equipments, skus, selectedPlantId, currentUser, startLossLog, saveStateToStorage, addOperationLog]
+    [runtimes, equipments, selectedPlantId, currentUser, startLossLog, saveStateToStorage, addOperationLog]
   );
 
   const completeCIPCycle = useCallback(
@@ -1804,14 +2065,22 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       const targetCip = cips.find((c) => c.lineId === lineId && c.status === 'IN_CIP');
       if (!targetCip) return { success: false, message: 'Không có chu trình CIP nào đang chạy trên line này!' };
 
-      // Transition to POST_CIP_SAMPLING with 60-min countdown saved in timestamp!
+      // Look up CIP type configuration
+      const activeRt = runtimes.find((r) => r.id === targetCip.runtimeId);
+      const matchedCipType =
+        cipTypes.find((c) => c.code === targetCip.note || targetCip.note.includes(c.name)) ||
+        cipTypes[0];
+      const samplingWaitMinutes = matchedCipType?.samplingWaitMinutes || 60;
+
+      // Transition to POST_CIP_SAMPLING with actual sampling wait from CIP Master
       setCips((prev) => {
         const next = prev.map((c) =>
           c.id === targetCip.id
             ? {
                 ...c,
-                cipCompletedAt: nowIso,
+                cipCompletedAt: nowIso, // Independent timestamp: CIP completed
                 samplingStartedAt: nowIso,
+                samplingMinutes: samplingWaitMinutes,
                 status: 'POST_CIP_SAMPLING' as const,
                 updatedAt: nowIso,
               }
@@ -1821,6 +2090,28 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
 
+      // Apply CIP resetRules strictly:
+      if (matchedCipType?.resetRules?.resetsEquipmentDays) {
+        setForcedCipRules((prev) => {
+          const next = prev.map((r) =>
+            r.lineId === lineId &&
+            (r.requiredCipType === matchedCipType.code || matchedCipType.code === 'CIP_AV')
+              ? { ...r, lastCipAt: nowIso }
+              : r
+          );
+          saveStateToStorage({ forcedCipRules: next });
+          return next;
+        });
+      }
+
+      if (matchedCipType?.resetRules?.resetsSkuRuntime && activeRt) {
+        setRuntimes((prev) => {
+          const next = prev.map((r) => (r.id === activeRt.id ? { ...r, startedAt: nowIso } : r));
+          saveStateToStorage({ runtimes: next });
+          return next;
+        });
+      }
+
       // Automatically end linked Loss log if any
       if (targetCip.linkedLossId) {
         endLossLog(targetCip.linkedLossId, nowIso);
@@ -1829,12 +2120,12 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       addOperationLog({
         lineId,
         eventGroup: 'CIP',
-        content: `CIP hoàn tất, chuyển sang giai đoạn Post-CIP Sampling (60 phút).`,
+        content: `CIP (${matchedCipType?.name || 'Vệ sinh'}) hoàn tất lúc ${formatTime(nowIso)}. Chuyển sang lấy mẫu Post-CIP (${samplingWaitMinutes} phút). Chờ kết quả QC ĐẠT.`,
       });
 
       return { success: true };
     },
-    [cips, endLossLog, saveStateToStorage, addOperationLog]
+    [cips, runtimes, cipTypes, endLossLog, saveStateToStorage, addOperationLog]
   );
 
   const verifyAndSetReady = useCallback(
@@ -2208,6 +2499,10 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       saveReadinessLog,
       getEquipmentReadiness,
       getLineReadinessStatus,
+      copyChecklistTemplate,
+      lineShiftReceptions,
+      saveLineShiftReception,
+      getLineShiftReception,
       cipTypes,
       addCipType,
       updateCipType,
@@ -2291,6 +2586,10 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       saveReadinessLog,
       getEquipmentReadiness,
       getLineReadinessStatus,
+      copyChecklistTemplate,
+      lineShiftReceptions,
+      saveLineShiftReception,
+      getLineShiftReception,
       cipTypes,
       addCipType,
       updateCipType,

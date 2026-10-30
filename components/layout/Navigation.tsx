@@ -16,7 +16,7 @@ import {
   Settings,
 } from 'lucide-react';
 
-export type MainTab = 'dashboard' | 'record' | 'runtime' | 'handover' | 'more';
+export type MainTab = 'dashboard' | 'record' | 'log' | 'runtime' | 'handover' | 'more';
 export type RecordSubTab = 'am' | 'abnormal' | 'loss' | 'log';
 export type MoreSubTab = 'progress' | 'schedule' | 'kpi' | 'settings';
 
@@ -40,6 +40,7 @@ export function Navigation({
   const mainNavItems = [
     { id: 'dashboard' as MainTab, label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'record' as MainTab, label: 'Ghi nhận', icon: ClipboardCheck },
+    { id: 'log' as MainTab, label: 'Nhật ký', icon: FileText },
     { id: 'runtime' as MainTab, label: 'Runtime/CIP', icon: Timer },
     { id: 'handover' as MainTab, label: 'Giao ca', icon: ArrowLeftRight },
     { id: 'more' as MainTab, label: 'Thêm', icon: MoreHorizontal },
