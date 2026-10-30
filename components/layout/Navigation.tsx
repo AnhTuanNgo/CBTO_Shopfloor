@@ -46,7 +46,7 @@ export function Navigation({
   ];
 
   const recordSubNav = [
-    { id: 'am' as RecordSubTab, label: 'Kiểm tra AM', icon: ClipboardCheck },
+    { id: 'am' as RecordSubTab, label: 'Kiểm tra đầu ca & Sẵn sàng', icon: ClipboardCheck },
     { id: 'abnormal' as RecordSubTab, label: 'Bất thường', icon: AlertTriangle },
     { id: 'loss' as RecordSubTab, label: 'Loss Time', icon: ClockAlert },
     { id: 'log' as RecordSubTab, label: 'Nhật ký vận hành', icon: FileText },

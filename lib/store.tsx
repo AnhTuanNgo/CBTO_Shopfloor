@@ -26,6 +26,13 @@ import {
   ImpactConfirmationStatus,
   LossEventSource,
   LossOriginStage,
+  ChecklistItemConfig,
+  EquipmentReadinessLog,
+  ReadinessConclusion,
+  ForcedCIPRule,
+  CIPTypeMaster,
+  PostCipInspection,
+  EquipmentReadinessItemResult,
 } from './types';
 import {
   CBTO_PLANT_ID,
@@ -44,6 +51,11 @@ import {
   INITIAL_HANDOVERS,
   INITIAL_SHIFTS,
   INITIAL_DOWNTIME_REASONS,
+  INITIAL_CHECKLIST_CONFIGS,
+  INITIAL_READINESS_LOGS,
+  INITIAL_CIP_TYPES,
+  INITIAL_FORCED_CIP_RULES,
+  INITIAL_POST_CIP_INSPECTIONS,
 } from './mock-data';
 import { getProductionDate, getCurrentShift, calculateImpactMetrics, getImpactScope } from './date-utils';
 
@@ -96,7 +108,32 @@ interface AppStoreContextType {
   updateDowntimeReason: (item: DowntimeReasonItem) => void;
   deleteDowntimeReason: (id: string) => void;
 
-  // Module 1: AM Checklists
+  // Module 1: Kiểm tra đầu ca & Sẵn sàng sản xuất (Readiness & Checklists)
+  checklistConfigs: ChecklistItemConfig[];
+  addChecklistConfig: (data: Omit<ChecklistItemConfig, 'id'>) => ChecklistItemConfig;
+  updateChecklistConfig: (item: ChecklistItemConfig) => void;
+  deleteChecklistConfig: (id: string) => void;
+  getChecklistConfigsByEquipment: (equipmentId: string) => ChecklistItemConfig[];
+
+  readinessLogs: EquipmentReadinessLog[];
+  saveReadinessLog: (data: Omit<EquipmentReadinessLog, 'id' | 'createdAt' | 'updatedAt'>) => {
+    success: boolean;
+    log: EquipmentReadinessLog;
+    message?: string;
+  };
+  getEquipmentReadiness: (equipmentId: string, date: string, shiftId: ShiftId) => EquipmentReadinessLog | undefined;
+  getLineReadinessStatus: (lineId: string, date: string, shiftId: ShiftId) => {
+    conclusion: ReadinessConclusion;
+    totalEquipments: number;
+    checkedEquipments: number;
+    readyEquipments: number;
+    conditionalEquipments: number;
+    notReadyEquipments: number;
+    uncheckedEquipments: number;
+    notConfiguredEquipments: number;
+  };
+
+  // Legacy AM Checklists
   amChecklists: AMChecklist[];
   saveAMChecklist: (checklist: Omit<AMChecklist, 'id' | 'createdAt' | 'performedAt'>) => { success: boolean; message?: string };
 
@@ -173,6 +210,22 @@ interface AppStoreContextType {
   verifyAndSetReady: (lineId: string) => { success: boolean; message?: string };
   updateSkuLimit: (skuId: string, newHours: number) => void;
 
+  // Module 5+: CIP Types, Forced CIP Rules, Post-CIP Sampling & QC
+  cipTypes: CIPTypeMaster[];
+  addCipType: (cipType: CIPTypeMaster) => void;
+  updateCipType: (cipType: CIPTypeMaster) => void;
+  deleteCipType: (code: string) => void;
+
+  forcedCipRules: ForcedCIPRule[];
+  addForcedCipRule: (rule: Omit<ForcedCIPRule, 'id'>) => ForcedCIPRule;
+  updateForcedCipRule: (rule: ForcedCIPRule) => void;
+  deleteForcedCipRule: (id: string) => void;
+
+  postCipInspections: PostCipInspection[];
+  startPostCipSampling: (cipTrackingId: string, lineId: string, expectedMins?: number, inspectorName?: string) => PostCipInspection;
+  updatePostCipQc: (inspectionId: string, result: 'PENDING' | 'PASSED' | 'FAILED', notes?: string, inspectorName?: string) => void;
+  grantProductionPermission: (inspectionId: string, approverName: string) => { success: boolean; message?: string };
+
   // Module 6: Shift Handover
   handovers: ShiftHandover[];
   createHandover: (data: {
@@ -211,6 +264,18 @@ interface AppStoreContextType {
   notifications: AppNotification[];
   markNotificationRead: (id: string) => void;
   clearNotification: (id: string) => void;
+
+  // Module 14: Settings & Multi-Sheet Excel Import
+  importFullConfiguration: (data: {
+    lines?: Line[];
+    equipments?: Equipment[];
+    skus?: SKU[];
+    shifts?: ShiftInfo[];
+    checklists?: ChecklistItemConfig[];
+    cipTypes?: CIPTypeMaster[];
+    forcedCipRules?: ForcedCIPRule[];
+    downtimeReasons?: DowntimeReasonItem[];
+  }) => { success: boolean; message: string; summary: Record<string, number> };
 
   // Data reset & export
   resetToSampleData: () => void;
@@ -299,6 +364,21 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   const [downtimeReasons, setDowntimeReasons] = useState<DowntimeReasonItem[]>(() => getStored()?.downtimeReasons || INITIAL_DOWNTIME_REASONS);
 
   const [amChecklists, setAmChecklists] = useState<AMChecklist[]>(() => getStored()?.amChecklists || INITIAL_AM_CHECKLISTS);
+  const [checklistConfigs, setChecklistConfigs] = useState<ChecklistItemConfig[]>(
+    () => getStored()?.checklistConfigs || INITIAL_CHECKLIST_CONFIGS
+  );
+  const [readinessLogs, setReadinessLogs] = useState<EquipmentReadinessLog[]>(
+    () => getStored()?.readinessLogs || INITIAL_READINESS_LOGS
+  );
+  const [cipTypes, setCipTypes] = useState<CIPTypeMaster[]>(
+    () => getStored()?.cipTypes || INITIAL_CIP_TYPES
+  );
+  const [forcedCipRules, setForcedCipRules] = useState<ForcedCIPRule[]>(
+    () => getStored()?.forcedCipRules || INITIAL_FORCED_CIP_RULES
+  );
+  const [postCipInspections, setPostCipInspections] = useState<PostCipInspection[]>(
+    () => getStored()?.postCipInspections || INITIAL_POST_CIP_INSPECTIONS
+  );
   const [abnormalLogs, setAbnormalLogs] = useState<AbnormalLog[]>(() => getStored()?.abnormalLogs || INITIAL_ABNORMALITIES);
   const [lossLogs, setLossLogs] = useState<LossLog[]>(() => normalizeLossLogs(getStored()?.lossLogs || INITIAL_LOSS_LOGS));
   const [operationLogs, setOperationLogs] = useState<OperationLog[]>(() => getStored()?.operationLogs || INITIAL_OPERATION_LOGS);
@@ -329,6 +409,11 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
           shifts,
           equipments,
           downtimeReasons,
+          checklistConfigs,
+          readinessLogs,
+          cipTypes,
+          forcedCipRules,
+          postCipInspections,
           amChecklists,
           abnormalLogs,
           lossLogs,
@@ -353,6 +438,11 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       shifts,
       equipments,
       downtimeReasons,
+      checklistConfigs,
+      readinessLogs,
+      cipTypes,
+      forcedCipRules,
+      postCipInspections,
       amChecklists,
       abnormalLogs,
       lossLogs,
@@ -638,6 +728,440 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       return { success: true };
     },
     [equipments, saveStateToStorage]
+  );
+
+  // ----------------------------------------------------
+  // Module 1: Kiểm tra đầu ca & Xác nhận sẵn sàng sản xuất
+  // ----------------------------------------------------
+  const addChecklistConfig = useCallback(
+    (data: Omit<ChecklistItemConfig, 'id'>) => {
+      const newItem: ChecklistItemConfig = {
+        ...data,
+        id: `CHK_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      };
+      setChecklistConfigs((prev) => {
+        const next = [...prev, newItem];
+        saveStateToStorage({ checklistConfigs: next });
+        return next;
+      });
+      return newItem;
+    },
+    [saveStateToStorage]
+  );
+
+  const updateChecklistConfig = useCallback(
+    (item: ChecklistItemConfig) => {
+      setChecklistConfigs((prev) => {
+        const next = prev.map((c) => (c.id === item.id ? item : c));
+        saveStateToStorage({ checklistConfigs: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const deleteChecklistConfig = useCallback(
+    (id: string) => {
+      setChecklistConfigs((prev) => {
+        const next = prev.filter((c) => c.id !== id);
+        saveStateToStorage({ checklistConfigs: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const getChecklistConfigsByEquipment = useCallback(
+    (equipmentId: string) => {
+      return checklistConfigs.filter((c) => c.equipmentId === equipmentId && c.active);
+    },
+    [checklistConfigs]
+  );
+
+  const getEquipmentReadiness = useCallback(
+    (equipmentId: string, date: string, shiftId: ShiftId) => {
+      return readinessLogs.find(
+        (log) => log.equipmentId === equipmentId && log.productionDate === date && log.shiftId === shiftId
+      );
+    },
+    [readinessLogs]
+  );
+
+  const getLineReadinessStatus = useCallback(
+    (lineId: string, date: string, shiftId: ShiftId) => {
+      const lineEquipments = equipments.filter((eq) => eq.lineId === lineId);
+      let checkedEquipments = 0;
+      let readyEquipments = 0;
+      let conditionalEquipments = 0;
+      let notReadyEquipments = 0;
+      let uncheckedEquipments = 0;
+      let notConfiguredEquipments = 0;
+
+      lineEquipments.forEach((eq) => {
+        const hasConfigs = checklistConfigs.some((c) => c.equipmentId === eq.id && c.active);
+        if (!hasConfigs) {
+          notConfiguredEquipments++;
+          return;
+        }
+        const log = readinessLogs.find(
+          (l) => l.equipmentId === eq.id && l.productionDate === date && l.shiftId === shiftId
+        );
+        if (!log) {
+          uncheckedEquipments++;
+        } else {
+          checkedEquipments++;
+          if (log.conclusion === 'READY') readyEquipments++;
+          else if (log.conclusion === 'CONDITIONAL') conditionalEquipments++;
+          else if (log.conclusion === 'NOT_READY') notReadyEquipments++;
+          else uncheckedEquipments++;
+        }
+      });
+
+      let conclusion: ReadinessConclusion = 'READY';
+      if (notReadyEquipments > 0) {
+        conclusion = 'NOT_READY';
+      } else if (conditionalEquipments > 0) {
+        conclusion = 'CONDITIONAL';
+      } else if (uncheckedEquipments > 0) {
+        conclusion = 'UNCHECKED';
+      } else if (lineEquipments.length > 0 && notConfiguredEquipments === lineEquipments.length) {
+        conclusion = 'NOT_CONFIGURED';
+      } else {
+        conclusion = 'READY';
+      }
+
+      return {
+        conclusion,
+        totalEquipments: lineEquipments.length,
+        checkedEquipments,
+        readyEquipments,
+        conditionalEquipments,
+        notReadyEquipments,
+        uncheckedEquipments,
+        notConfiguredEquipments,
+      };
+    },
+    [equipments, checklistConfigs, readinessLogs]
+  );
+
+  const saveReadinessLog = useCallback(
+    (data: Omit<EquipmentReadinessLog, 'id' | 'createdAt' | 'updatedAt'>) => {
+      let finalConclusion = data.conclusion;
+      const hasNotReady = data.items.some(
+        (it) => it.failureImpact === 'NOT_READY' && (it.booleanVal === 'FAIL' || it.isOutOfRange === true)
+      );
+      const hasConditional = data.items.some(
+        (it) => it.failureImpact === 'CONDITIONAL_PRODUCTION' && (it.booleanVal === 'FAIL' || it.isOutOfRange === true)
+      );
+
+      if (hasNotReady) {
+        finalConclusion = 'NOT_READY';
+      } else if (hasConditional) {
+        finalConclusion = 'CONDITIONAL';
+      } else if (!data.items.some((it) => it.booleanVal === 'FAIL' || it.isOutOfRange)) {
+        finalConclusion = 'READY';
+      }
+
+      const nowIso = new Date().toISOString();
+      const existing = readinessLogs.find(
+        (l) => l.equipmentId === data.equipmentId && l.productionDate === data.productionDate && l.shiftId === data.shiftId
+      );
+
+      const logRecord: EquipmentReadinessLog = {
+        ...data,
+        conclusion: finalConclusion,
+        id: existing?.id || `RD_${Date.now()}`,
+        createdAt: existing?.createdAt || nowIso,
+        updatedAt: nowIso,
+      };
+
+      setReadinessLogs((prev) => {
+        const next = prev.some((l) => l.id === logRecord.id)
+          ? prev.map((l) => (l.id === logRecord.id ? logRecord : l))
+          : [logRecord, ...prev];
+        saveStateToStorage({ readinessLogs: next });
+        return next;
+      });
+
+      // Auto-log into OperationLog
+      const eq = equipments.find((e) => e.id === data.equipmentId);
+      const eqName = eq ? `${eq.name} (${eq.code})` : data.equipmentId;
+      const conclusionText =
+        finalConclusion === 'READY'
+          ? 'Sẵn sàng sản xuất'
+          : finalConclusion === 'CONDITIONAL'
+          ? `Sản xuất có điều kiện (${data.conditionsNote || 'Cần theo dõi sát'})`
+          : 'Chưa sẵn sàng sản xuất (Phát hiện lỗi/vượt ngưỡng)';
+
+      const autoOpLog: OperationLog = {
+        id: `OP_RD_${Date.now()}`,
+        plantId: data.plantId,
+        lineId: data.lineId,
+        productionDate: data.productionDate,
+        shiftId: data.shiftId,
+        occurredAt: data.inspectedAt,
+        eventGroup: 'Sản xuất',
+        content: `[Kiểm tra đầu ca] Thiết bị ${eqName}: ${conclusionText}. Người nhận ca: ${data.receiverName}. Người kiểm tra: ${data.inspectorName}.`,
+        sourceType: 'READINESS_CHECK',
+        sourceId: logRecord.id,
+        reportedBy: currentUser.uid,
+        reportedByName: currentUser.displayName,
+        createdAt: nowIso,
+      };
+
+      setOperationLogs((prev) => {
+        const next = [autoOpLog, ...prev];
+        saveStateToStorage({ operationLogs: next });
+        return next;
+      });
+
+      return { success: true, log: logRecord, message: 'Đã lưu kết quả kiểm tra đầu ca & xác nhận sẵn sàng!' };
+    },
+    [readinessLogs, equipments, currentUser, saveStateToStorage]
+  );
+
+  // ----------------------------------------------------
+  // Module 5+: CIP Types, Forced CIP Rules & Post-CIP Inspections
+  // ----------------------------------------------------
+  const addCipType = useCallback(
+    (cipType: CIPTypeMaster) => {
+      setCipTypes((prev) => {
+        const next = [...prev.filter((c) => c.code !== cipType.code), cipType];
+        saveStateToStorage({ cipTypes: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const updateCipType = useCallback(
+    (cipType: CIPTypeMaster) => {
+      setCipTypes((prev) => {
+        const next = prev.map((c) => (c.code === cipType.code ? cipType : c));
+        saveStateToStorage({ cipTypes: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const deleteCipType = useCallback(
+    (code: string) => {
+      setCipTypes((prev) => {
+        const next = prev.filter((c) => c.code !== code);
+        saveStateToStorage({ cipTypes: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const addForcedCipRule = useCallback(
+    (rule: Omit<ForcedCIPRule, 'id'>) => {
+      const newRule: ForcedCIPRule = {
+        ...rule,
+        id: `FCR_${Date.now()}`,
+      };
+      setForcedCipRules((prev) => {
+        const next = [...prev, newRule];
+        saveStateToStorage({ forcedCipRules: next });
+        return next;
+      });
+      return newRule;
+    },
+    [saveStateToStorage]
+  );
+
+  const updateForcedCipRule = useCallback(
+    (rule: ForcedCIPRule) => {
+      setForcedCipRules((prev) => {
+        const next = prev.map((r) => (r.id === rule.id ? rule : r));
+        saveStateToStorage({ forcedCipRules: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const deleteForcedCipRule = useCallback(
+    (id: string) => {
+      setForcedCipRules((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        saveStateToStorage({ forcedCipRules: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const startPostCipSampling = useCallback(
+    (cipTrackingId: string, lineId: string, expectedMins: number = 60, inspectorName?: string) => {
+      const nowIso = new Date().toISOString();
+      const newInspection: PostCipInspection = {
+        id: `PCI_${Date.now()}`,
+        cipTrackingId,
+        lineId,
+        samplingStartedAt: nowIso,
+        expectedDurationMinutes: expectedMins,
+        actualDurationMinutes: 0,
+        qcResult: 'PENDING',
+        qcNotes: 'Đang nuôi cấy test nhanh vi sinh & hóa lý nước tráng.',
+        inspectorName: inspectorName || currentUser.displayName,
+        approvedBy: '',
+        approvedAt: '',
+        permissionGranted: false,
+      };
+      setPostCipInspections((prev) => {
+        const next = [newInspection, ...prev];
+        saveStateToStorage({ postCipInspections: next });
+        return next;
+      });
+      setCips((prev) => {
+        const next = prev.map((c) =>
+          c.id === cipTrackingId
+            ? {
+                ...c,
+                samplingStartedAt: nowIso,
+                status: 'POST_CIP_SAMPLING' as const,
+                updatedAt: nowIso,
+              }
+            : c
+        );
+        saveStateToStorage({ cips: next });
+        return next;
+      });
+      return newInspection;
+    },
+    [currentUser.displayName, saveStateToStorage]
+  );
+
+  const updatePostCipQc = useCallback(
+    (inspectionId: string, result: 'PENDING' | 'PASSED' | 'FAILED', notes?: string, inspectorName?: string) => {
+      setPostCipInspections((prev) => {
+        const next = prev.map((ins) =>
+          ins.id === inspectionId
+            ? {
+                ...ins,
+                qcResult: result,
+                qcNotes: notes !== undefined ? notes : ins.qcNotes,
+                inspectorName: inspectorName || ins.inspectorName,
+              }
+            : ins
+        );
+        saveStateToStorage({ postCipInspections: next });
+        return next;
+      });
+    },
+    [saveStateToStorage]
+  );
+
+  const grantProductionPermission = useCallback(
+    (inspectionId: string, approverName: string) => {
+      const inspection = postCipInspections.find((i) => i.id === inspectionId);
+      if (!inspection) return { success: false, message: 'Không tìm thấy phiếu kiểm tra sau CIP!' };
+      if (inspection.qcResult !== 'PASSED') {
+        return { success: false, message: 'Kết quả kiểm nghiệm QC bắt buộc phải ĐẠT mới được cấp phép sản xuất!' };
+      }
+      const nowIso = new Date().toISOString();
+      setPostCipInspections((prev) => {
+        const next = prev.map((ins) =>
+          ins.id === inspectionId
+            ? {
+                ...ins,
+                approvedBy: approverName,
+                approvedAt: nowIso,
+                permissionGranted: true,
+              }
+            : ins
+        );
+        saveStateToStorage({ postCipInspections: next });
+        return next;
+      });
+      setCips((prev) => {
+        const next = prev.map((c) =>
+          c.id === inspection.cipTrackingId
+            ? {
+                ...c,
+                status: 'READY' as const,
+                readyAt: nowIso,
+                verifiedBy: currentUser.uid,
+                verifiedByName: approverName,
+                updatedAt: nowIso,
+              }
+            : c
+        );
+        saveStateToStorage({ cips: next });
+        return next;
+      });
+      return { success: true, message: 'Đã cấp phép sản xuất thành công!' };
+    },
+    [postCipInspections, currentUser.uid, saveStateToStorage]
+  );
+
+  // ----------------------------------------------------
+  // Module 14: Settings & Multi-Sheet Excel Import
+  // ----------------------------------------------------
+  const importFullConfiguration = useCallback(
+    (data: {
+      lines?: Line[];
+      equipments?: Equipment[];
+      skus?: SKU[];
+      shifts?: ShiftInfo[];
+      checklists?: ChecklistItemConfig[];
+      cipTypes?: CIPTypeMaster[];
+      forcedCipRules?: ForcedCIPRule[];
+      downtimeReasons?: DowntimeReasonItem[];
+    }) => {
+      const summary: Record<string, number> = {};
+      if (data.lines && data.lines.length > 0) {
+        setLines(data.lines);
+        summary['Lines'] = data.lines.length;
+      }
+      if (data.equipments && data.equipments.length > 0) {
+        setEquipments(data.equipments);
+        summary['Thiết bị'] = data.equipments.length;
+      }
+      if (data.skus && data.skus.length > 0) {
+        setSkus(data.skus);
+        summary['SKU'] = data.skus.length;
+      }
+      if (data.shifts && data.shifts.length > 0) {
+        setShifts(data.shifts);
+        summary['Ca làm việc'] = data.shifts.length;
+      }
+      if (data.checklists && data.checklists.length > 0) {
+        setChecklistConfigs(data.checklists);
+        summary['Hạng mục kiểm tra'] = data.checklists.length;
+      }
+      if (data.cipTypes && data.cipTypes.length > 0) {
+        setCipTypes(data.cipTypes);
+        summary['Loại CIP'] = data.cipTypes.length;
+      }
+      if (data.forcedCipRules && data.forcedCipRules.length > 0) {
+        setForcedCipRules(data.forcedCipRules);
+        summary['Quy tắc CIP'] = data.forcedCipRules.length;
+      }
+      if (data.downtimeReasons && data.downtimeReasons.length > 0) {
+        setDowntimeReasons(data.downtimeReasons);
+        summary['Lý do dừng máy'] = data.downtimeReasons.length;
+      }
+      saveStateToStorage({
+        ...(data.lines ? { lines: data.lines } : {}),
+        ...(data.equipments ? { equipments: data.equipments } : {}),
+        ...(data.skus ? { skus: data.skus } : {}),
+        ...(data.shifts ? { shifts: data.shifts } : {}),
+        ...(data.checklists ? { checklistConfigs: data.checklists } : {}),
+        ...(data.cipTypes ? { cipTypes: data.cipTypes } : {}),
+        ...(data.forcedCipRules ? { forcedCipRules: data.forcedCipRules } : {}),
+        ...(data.downtimeReasons ? { downtimeReasons: data.downtimeReasons } : {}),
+      });
+      return {
+        success: true,
+        message: 'Cập nhật cấu hình hệ thống từ file Excel thành công!',
+        summary,
+      };
+    },
+    [saveStateToStorage]
   );
 
   // ----------------------------------------------------
@@ -1675,6 +2199,28 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       addDowntimeReason,
       updateDowntimeReason,
       deleteDowntimeReason,
+      checklistConfigs,
+      addChecklistConfig,
+      updateChecklistConfig,
+      deleteChecklistConfig,
+      getChecklistConfigsByEquipment,
+      readinessLogs,
+      saveReadinessLog,
+      getEquipmentReadiness,
+      getLineReadinessStatus,
+      cipTypes,
+      addCipType,
+      updateCipType,
+      deleteCipType,
+      forcedCipRules,
+      addForcedCipRule,
+      updateForcedCipRule,
+      deleteForcedCipRule,
+      postCipInspections,
+      startPostCipSampling,
+      updatePostCipQc,
+      grantProductionPermission,
+      importFullConfiguration,
       amChecklists,
       saveAMChecklist,
       abnormalLogs,
@@ -1736,6 +2282,28 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
       addDowntimeReason,
       updateDowntimeReason,
       deleteDowntimeReason,
+      checklistConfigs,
+      addChecklistConfig,
+      updateChecklistConfig,
+      deleteChecklistConfig,
+      getChecklistConfigsByEquipment,
+      readinessLogs,
+      saveReadinessLog,
+      getEquipmentReadiness,
+      getLineReadinessStatus,
+      cipTypes,
+      addCipType,
+      updateCipType,
+      deleteCipType,
+      forcedCipRules,
+      addForcedCipRule,
+      updateForcedCipRule,
+      deleteForcedCipRule,
+      postCipInspections,
+      startPostCipSampling,
+      updatePostCipQc,
+      grantProductionPermission,
+      importFullConfiguration,
       amChecklists,
       saveAMChecklist,
       abnormalLogs,

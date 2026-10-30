@@ -67,17 +67,17 @@ $$\text{Sự kiện / Nguyên nhân gốc} \longrightarrow \text{Ảnh hưởng 
 
 | Module | Đường dẫn / Tab | Chức năng chính |
 | :--- | :--- | :--- |
-| **Dashboard Điều Hành** | `Tổng quan` | Giám sát 4 chỉ số cốt lõi, trung tâm cảnh báo việc cần chú ý, Dual Pareto (Pareto Nguyên nhân 9 nhóm vs. Pareto Ảnh hưởng vận hành thực tế). |
-| **Bảo trì AM** | `Ghi nhận` $\rightarrow$ `Kiểm tra AM` | Checklist 14 hạng mục theo ca và dây chuyền (Cơ khí, Utility, Đo lường, An toàn), đánh giá PASS / PASS + TAG / FAIL, xem biên bản chi tiết. |
-| **Bất thường** | `Ghi nhận` $\rightarrow$ `Bất thường` | Ghi nhận sự cố bất thường máy móc/chất lượng (<30s), theo dõi trạng thái xử lý và rà soát của giám sát. |
-| **Loss Time** | `Ghi nhận` $\rightarrow$ `Loss Time` | Quản lý dừng máy theo Line, form ghi nhận 4 phần chuẩn hóa, theo dõi sự cố đang mở (ongoing) và tổng hợp phân bổ 9 nhóm. |
-| **Nhật ký vận hành** | `Ghi nhận` $\rightarrow$ `Nhật ký` | Dòng thời gian (Timeline) ghi chép các thao tác kỹ thuật, thông số mẻ nấu, cấp phụ gia, vệ sinh. |
-| **Runtime & CIP** | `Runtime/CIP` | Đo lường thời gian chạy liên tục (giới hạn SKU), cảnh báo >90%, quy trình dừng máy chuyển sang CIP an toàn, tự động liên kết Loss Time (CIP), hoàn tất CIP và đếm ngược Post-CIP 60 phút. |
-| **Bàn giao ca** | `Giao ca` | Bàn giao an toàn, chất lượng 5S, tiến độ sản lượng, công việc tồn đọng và xác nhận ký nhận 2 chiều giữa 2 ca. |
-| **Tiến độ sản xuất** | `Thêm` $\rightarrow$ `Tiến độ` | Theo dõi sản lượng theo SKU (chai 250ml, 500ml, can 2L...), tỷ lệ hoàn thành kế hoạch, hỗ trợ nhập tay hoặc Upload CSV. |
-| **Lịch làm việc** | `Thêm` $\rightarrow$ `Lịch làm việc` | Lịch phân ca theo Line, nhân sự phụ trách từng vị trí vận hành, bảng trực quan phóng to. |
-| **KPI Vận hành** | `Thêm` $\rightarrow$ `KPI` | Đánh giá chỉ số sẵn sàng thiết bị, tuân thủ AM, hoàn thành sản lượng, bảng Pareto 80/20. |
-| **Cài đặt chi tiết** | `Thêm` $\rightarrow$ `Cài đặt` | Tùy biến danh mục Line, Thiết bị, Ca sản xuất, SKU và Danh mục lý do lỗi riêng cho từng dây chuyền. |
+| **Dashboard Supervisor** | `Tổng quan` | Giám sát 5 chỉ số sức khỏe vận hành (không quản lý sản lượng thay MES), cảnh báo bất thường mở, Dual Pareto (Nguyên nhân 9 nhóm vs. Ảnh hưởng vận hành thực tế). |
+| **Kiểm tra đầu ca & Sẵn sàng SX** | `Ghi nhận` $\rightarrow$ `Kiểm tra đầu ca & Sẵn sàng` | Xác nhận người nhận ca, người kiểm tra, thời điểm kiểm tra, checklist thiết bị theo cấu hình (Boolean, Measurement min/max, NA), 5 kết luận: *Sẵn sàng sản xuất*, *Sản xuất có điều kiện* (kèm điều kiện & người duyệt), *Chưa sẵn sàng*, *Chưa kiểm tra*, *Chưa cấu hình*. |
+| **Bất thường** | `Ghi nhận` $\rightarrow$ `Bất thường` | Ghi nhận FACT tại hiện trường, liên kết 1-chạm từ checklist lỗi, ghi nhận trạng thái tiếp nhận (Acknowledged != Fixed). |
+| **Loss Time** | `Ghi nhận` $\rightarrow$ `Loss Time` | Quản lý dừng máy theo Line, mô hình 7 chiều độc lập, không mặc định dừng nấu 100%, khử trùng lặp năng lực theo thời gian và giữ riêng Nấu / Cấp tương / Đóng gói. |
+| **Nhật ký vận hành** | `Ghi nhận` $\rightarrow$ `Nhật ký` | Dòng thời gian (Timeline ca) tổng hợp tự động các sự kiện: Kiểm tra sẵn sàng, Bắt đầu SKU, Dừng sang CIP, Bất thường và Ghi nhận kỹ thuật. |
+| **Runtime & CIP** | `Runtime/CIP` | Giám sát toàn xưởng (tất cả các Line), tách biệt Runtime SKU (>80%, 90%, 100%) và CIP Cưỡng Bức thiết bị (ngày kể từ CIP cuối, ngày dừng máy), Post-CIP 60 phút có xác nhận QC (Chưa có / Đạt / Không đạt) và cấp phép sản xuất. |
+| **Bàn giao ca điện tử** | `Giao ca` | Bàn giao an toàn, chất lượng 5S, công việc tồn đọng và xác nhận ký nhận 2 chiều giữa 2 ca. |
+| **Tiến độ sản xuất (MES)** | `Thêm` $\rightarrow$ `Tiến độ` | Màn hình tra cứu sản lượng tham chiếu từ MES (không yêu cầu công nhân nhập lại). |
+| **Lịch làm việc** | `Thêm` $\rightarrow$ `Lịch làm việc` | Đăng tải và hiển thị file lịch phân ca ảnh/PDF hiện trường. |
+| **KPI Vận hành** | `Thêm` $\rightarrow$ `KPI` | Đánh giá chỉ số tuân thủ kiểm tra đầu ca theo đúng ngày, ca và thiết bị cần kiểm; phân tích Pareto dừng máy. |
+| **Cài đặt & Excel Workbook** | `Thêm` $\rightarrow$ `Cài đặt` | Quản trị Chuyền, Thiết bị, Hạng mục checklist, Loại CIP & Hóa chất, Quy tắc CIP cưỡng bức; Import/Export file Excel 14 sheets (.xlsx) có đối soát dữ liệu. |
 
 ---
 

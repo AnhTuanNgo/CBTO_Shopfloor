@@ -56,6 +56,80 @@ export interface SKU {
 
 export type AMResult = 'PASS' | 'PASS_TAG' | 'FAIL';
 
+export type ReadinessConclusion =
+  | 'READY'             // Sẵn sàng sản xuất
+  | 'CONDITIONAL'       // Sản xuất có điều kiện
+  | 'NOT_READY'         // Chưa sẵn sàng sản xuất
+  | 'UNCHECKED'         // Chưa kiểm tra
+  | 'NOT_CONFIGURED';   // Chưa cấu hình checklist
+
+export type ChecklistResponseType = 'BOOLEAN' | 'MEASUREMENT' | 'TEXT';
+export type ChecklistFailureImpact = 'RECORD_ONLY' | 'CONDITIONAL_PRODUCTION' | 'NOT_READY';
+
+export interface ChecklistItemConfig {
+  id: string;
+  equipmentId?: string;
+  lineId?: string;
+  code: string;
+  title: string;
+  group: 'Cơ khí' | 'Utility' | 'Instrument' | 'An toàn' | 'Vệ sinh' | 'Chế biến';
+  responseType: ChecklistResponseType;
+  unit?: string;
+  minVal?: number;
+  maxVal?: number;
+  isMandatory: boolean;
+  allowNA: boolean;
+  failureImpact: ChecklistFailureImpact;
+  active: boolean;
+  description?: string;
+}
+
+export interface EquipmentChecklistTemplate {
+  equipmentId: string;
+  lineId: string;
+  items: ChecklistItemConfig[];
+  version: number;
+  updatedAt: string;
+}
+
+export interface EquipmentReadinessItemResult {
+  itemId: string;
+  code: string;
+  title: string;
+  group: string;
+  responseType: ChecklistResponseType;
+  booleanVal?: 'PASS' | 'FAIL' | null;
+  measuredVal?: number | null;
+  textVal?: string;
+  isNA?: boolean;
+  naReason?: string;
+  unit?: string;
+  minVal?: number;
+  maxVal?: number;
+  isOutOfRange?: boolean;
+  failureImpact: ChecklistFailureImpact;
+  note?: string;
+  linkedAbnormalId?: string;
+}
+
+export interface EquipmentReadinessLog {
+  id: string;
+  plantId: string;
+  lineId: string;
+  equipmentId: string;
+  productionDate: string; // YYYY-MM-DD
+  shiftId: ShiftId;
+  conclusion: ReadinessConclusion;
+  receiverName: string;      // Ai nhận ca
+  inspectorName: string;     // Ai kiểm tra thiết bị
+  inspectedAt: string;       // Kiểm tra lúc nào (ISO)
+  approverName?: string;     // Người duyệt (nếu có điều kiện / giám sát)
+  conditionsNote?: string;   // Điều kiện cần theo dõi nếu có
+  items: EquipmentReadinessItemResult[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AMChecklistItem {
   itemId: string;
   group: 'Cơ khí' | 'Utility' | 'Instrument' | 'An toàn';
@@ -315,4 +389,60 @@ export interface WorkSchedule {
   publishedBy: string;
   publishedByName: string;
   notes?: string;
+}
+
+export interface ForcedCIPRule {
+  id: string;
+  equipmentId: string;
+  equipmentCode: string;
+  lineId: string;
+  maxDaysSinceLastCip: number; // Ngày tối đa sau CIP
+  maxIdleDaysWithoutCip: number; // Ngày dừng máy tối đa
+  requiredCipType: string; // e.g. 'CIP_AV', 'CIP_ACID_NAOH', 'CIP_C'
+  active: boolean;
+  notes?: string;
+  lastCipAt?: string;
+  lastRunAt?: string;
+}
+
+export interface CIPChemical {
+  id: string;
+  cipTypeCode: string;
+  chemicalName: string; // e.g. NaOH, HNO3, P3-Oxonia
+  concentration: string; // e.g. 1.5 - 2.0%
+  unit: string;
+}
+
+export interface CIPTypeMaster {
+  code: string; // 'CIP_AV', 'CIP_ACID_NAOH', 'CIP_C', 'CIP_D', 'CIP_SEMI'
+  name: string; // Tên hiển thị
+  standardDurationMin: number; // Phút min (e.g. 90)
+  standardDurationMax: number; // Phút max (e.g. 150)
+  requiredSampling: boolean; // Có lấy mẫu sau CIP không
+  samplingWaitMinutes: number; // Thời gian chờ lấy mẫu dự kiến (default 60m)
+  resetRules: {
+    resetsSkuRuntime: boolean;
+    resetsIdleDays: boolean;
+    resetsEquipmentDays: boolean;
+  };
+  applicableEquipments: string[];
+  chemicals: CIPChemical[];
+  active: boolean;
+  description?: string;
+}
+
+export interface PostCipInspection {
+  id: string;
+  cipTrackingId: string;
+  lineId: string;
+  equipmentId?: string;
+  samplingStartedAt: string; // ISO
+  expectedDurationMinutes: number; // default 60
+  actualDurationMinutes?: number;
+  qcResult: 'PENDING' | 'PASSED' | 'FAILED'; // Chưa có | Đạt | Không đạt
+  qcNotes?: string;
+  inspectorName?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  permissionGranted: boolean; // Cấp phép sản xuất lại
 }
