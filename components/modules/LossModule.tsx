@@ -50,6 +50,7 @@ import {
   Edit3,
   Flame,
   RotateCw,
+  Package,
 } from 'lucide-react';
 
 const OFFICIAL_LOSS_GROUPS: LossGroup[] = [
@@ -204,6 +205,7 @@ export function LossModule() {
   // Filter states
   const [filterLineId, setFilterLineId] = useState<string>('ALL');
   const [filterShiftId, setFilterShiftId] = useState<string>('ALL');
+  const [filterSkuId, setFilterSkuId] = useState<string>('ALL');
   const [filterDate, setFilterDate] = useState<string>(selectedProductionDate);
   const [isFilterAllDates, setIsFilterAllDates] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -213,8 +215,10 @@ export function LossModule() {
   const [endingLogId, setEndingLogId] = useState<string | null>(null);
   const [endDateTimeInput, setEndDateTimeInput] = useState('');
 
-  // Inline Quick Confirm for insufficient data / legacy in modal
+  // Inline Quick Confirm for insufficient data / CIP / legacy
+  const [quickConfirmEventId, setQuickConfirmEventId] = useState<string | null>(null);
   const [quickConfirmImpactId, setQuickConfirmImpactId] = useState<string | null>(null);
+  const [quickConfirmImpactType, setQuickConfirmImpactType] = useState<ImpactType>('NONE');
   const [quickConfirmPercent, setQuickConfirmPercent] = useState<number>(50);
   const [quickConfirmNote, setQuickConfirmNote] = useState<string>('');
 
@@ -587,9 +591,16 @@ export function LossModule() {
     }
   };
 
-  // Quick confirm unreviewed/insufficient impact in modal
+  // Quick confirm unreviewed/insufficient impact in modal or list
   const handleQuickConfirmImpact = (eventId: string, impactId: string) => {
-    confirmImpact(eventId, impactId, quickConfirmPercent, quickConfirmNote || 'Đã xác nhận mức ảnh hưởng thực tế.');
+    confirmImpact(
+      eventId,
+      impactId,
+      quickConfirmImpactType === 'NONE' ? 0 : quickConfirmPercent,
+      quickConfirmNote || 'Đã xác nhận mức ảnh hưởng thực tế.',
+      quickConfirmImpactType
+    );
+    setQuickConfirmEventId(null);
     setQuickConfirmImpactId(null);
     setQuickConfirmNote('');
   };
@@ -599,6 +610,13 @@ export function LossModule() {
     return lossLogs.filter((l) => {
       if (filterLineId !== 'ALL' && l.lineId !== filterLineId) return false;
       if (filterShiftId !== 'ALL' && l.shiftId !== filterShiftId) return false;
+      if (filterSkuId !== 'ALL') {
+        if (filterSkuId === 'OUT_OF_SESSION') {
+          if (l.skuId || l.runtimeSessionId) return false;
+        } else {
+          if (l.skuId !== filterSkuId) return false;
+        }
+      }
       if (!isFilterAllDates && l.productionDate !== filterDate) return false;
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
@@ -610,13 +628,45 @@ export function LossModule() {
       }
       return true;
     });
-  }, [lossLogs, filterLineId, filterShiftId, filterDate, isFilterAllDates, searchTerm]);
+  }, [lossLogs, filterLineId, filterShiftId, filterSkuId, filterDate, isFilterAllDates, searchTerm]);
 
   // Scope summary for active filter view
   const currentViewScopeMetrics = useMemo(() => {
     const allImpacts = filteredLossLogs.flatMap((l) => l.impacts || []);
     return calculateScopeLossMetrics(allImpacts, nowMs);
   }, [filteredLossLogs, nowMs]);
+
+  const overlapStats = useMemo(() => {
+    let duplicateSaved = 0;
+    let capSaved = 0;
+    let rawSum = 0;
+    let finalLoss = 0;
+    let maxCoOccur = 0;
+    let countInsufficient = 0;
+
+    Object.values(currentViewScopeMetrics).forEach((sm) => {
+      duplicateSaved += sm.duplicateSavedMinutes || 0;
+      capSaved += sm.capacityCapSavedMinutes || 0;
+      rawSum += sm.rawSumConvertedLossMinutes || 0;
+      finalLoss += sm.totalConvertedLossMinutes || 0;
+      if (sm.coOccurringIndependentEquipments > maxCoOccur) {
+        maxCoOccur = sm.coOccurringIndependentEquipments;
+      }
+      if (sm.hasInsufficientData) {
+        countInsufficient++;
+      }
+    });
+
+    return {
+      duplicateSaved,
+      capSaved,
+      totalSaved: duplicateSaved + capSaved,
+      rawSum,
+      finalLoss,
+      maxCoOccur,
+      countInsufficient,
+    };
+  }, [currentViewScopeMetrics]);
 
   const ongoingLossLogs = useMemo(() => {
     return filteredLossLogs.filter((l) => l.endedAt === null);
@@ -1109,6 +1159,21 @@ export function LossModule() {
               </button>
             </div>
 
+            {/* Cảnh báo sự kiện CIP không tự động áp đặt dừng nấu */}
+            {formCategory === 'CIP' && (
+              <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-xs space-y-2 shadow-2xs">
+                <div className="flex items-center gap-2 text-amber-900 font-black">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>NGHIỆP VỤ CIP: Yêu cầu xác nhận ảnh hưởng thực tế (Không tự động gán dừng nấu 100%)</span>
+                </div>
+                <p className="text-amber-800 leading-relaxed text-[11px]">
+                  • <strong>CIP tuần hoàn độc lập / rửa không dừng chuyền</strong>: Chọn <strong>Không ảnh hưởng vận hành (0%)</strong>.
+                  <br />• <strong>CIP bồn nấu dừng nấu nhưng Đóng gói vẫn chiết từ bồn buffer</strong>: Chọn <strong>Dừng nấu</strong> (phạm vi Nấu), <strong>không chọn Dừng đóng gói</strong>.
+                  <br />• <strong>Chưa rõ mức độ ảnh hưởng</strong>: Chọn <strong>Ứ bồn làm nguội / Chưa đủ dữ liệu</strong> để ghi nhận thời gian và xác nhận % sau.
+                </p>
+              </div>
+            )}
+
             {/* Intervals List */}
             {draftImpacts.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-red-200 bg-red-50/20 p-5 sm:p-6 text-center space-y-4">
@@ -1305,6 +1370,69 @@ export function LossModule() {
                       </div>
                     </div>
 
+                    {/* Mốc thời gian ảnh hưởng riêng biệt (phân biệt thời gian sự cố và ảnh hưởng) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-gray-200/80 bg-white/60 p-3 rounded-xl border">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-gray-700">
+                            Bắt đầu ảnh hưởng thực tế
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateDraftInterval(draft.tempId, { impactStartedAt: startIsoString })}
+                            className="text-[10px] font-bold text-[#E31837] hover:underline cursor-pointer"
+                          >
+                            Đồng bộ mốc bắt đầu sự cố
+                          </button>
+                        </div>
+                        <input
+                          type="datetime-local"
+                          value={draft.impactStartedAt ? draft.impactStartedAt.slice(0, 16) : ''}
+                          onChange={(e) => {
+                            const iso = toSafeIso(e.target.value);
+                            if (iso) handleUpdateDraftInterval(draft.tempId, { impactStartedAt: iso });
+                          }}
+                          className="mt-1 w-full rounded-xl border border-gray-200 bg-white p-2 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-gray-700">
+                            Kết thúc ảnh hưởng thực tế
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={draft.impactEndedAt === null}
+                              onChange={(e) => {
+                                handleUpdateDraftInterval(draft.tempId, {
+                                  impactEndedAt: e.target.checked ? null : endIsoString || new Date().toISOString(),
+                                });
+                              }}
+                              className="rounded border-gray-300 text-[#E31837] focus:ring-[#E31837] cursor-pointer"
+                            />
+                            <span className="text-[10px] font-bold text-rose-600">Đang diễn ra</span>
+                          </label>
+                        </div>
+                        {draft.impactEndedAt !== null ? (
+                          <input
+                            type="datetime-local"
+                            value={draft.impactEndedAt ? draft.impactEndedAt.slice(0, 16) : ''}
+                            onChange={(e) => {
+                              const iso = toSafeIso(e.target.value);
+                              if (iso) handleUpdateDraftInterval(draft.tempId, { impactEndedAt: iso });
+                            }}
+                            className="mt-1 w-full rounded-xl border border-gray-200 bg-white p-2 text-xs font-mono font-bold text-gray-800 focus:border-[#E31837] focus:outline-none"
+                          />
+                        ) : (
+                          <div className="mt-1 rounded-xl bg-red-50 p-2 text-center text-[11px] text-red-700 font-bold border border-red-200">
+                            Khoảng ảnh hưởng đang diễn ra (Tạm tính theo đồng hồ thực)
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Calculated live metric for this interval */}
                     <div className="rounded-xl bg-white p-3 border border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex items-center gap-2">
@@ -1425,6 +1553,39 @@ export function LossModule() {
             </div>
           </div>
 
+          {/* Anti-Duplication & Multi-Equipment Overlap Insight Banner */}
+          {(overlapStats.totalSaved > 0 || overlapStats.maxCoOccur > 1) && (
+            <div className="rounded-2xl bg-gradient-to-r from-slate-50 to-red-50/40 border border-gray-200/90 p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-100 text-[#E31837] shrink-0">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900">Xử lý Chồng lấn & Khử Trùng lặp (Anti-Duplication)</span>
+                    <span className="rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5">
+                      Tiết kiệm -{overlapStats.totalSaved}m tính trùng
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Tách bạch: Ghi trùng trên cùng thiết bị lấy Max công suất ({overlapStats.duplicateSaved}m) · Giới hạn trần Line 100% ({overlapStats.capSaved}m) · {overlapStats.maxCoOccur > 1 ? `Phát hiện ${overlapStats.maxCoOccur} thiết bị độc lập cùng phát sinh sự cố song song` : 'Không có sự cố đa thiết bị'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0 self-end md:self-auto font-mono text-[11px]">
+                <div className="text-right">
+                  <span className="text-gray-400 block text-[10px]">Tổng thô trước xử lý</span>
+                  <span className="text-gray-700 font-bold">{overlapStats.rawSum} phút</span>
+                </div>
+                <span className="text-gray-300 text-base">→</span>
+                <div className="text-right">
+                  <span className="text-red-600 font-bold block text-[10px]">Loss thực tế sau khử</span>
+                  <span className="text-[#E31837] font-black">{overlapStats.finalLoss} phút</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Filter Bar */}
           <div className="rounded-3xl bg-white border border-gray-200/80 p-5 space-y-4 shadow-xs">
             {/* Row 1: Line Selector */}
@@ -1502,6 +1663,32 @@ export function LossModule() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {/* SKU Session Filter */}
+                <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl px-2.5 py-1.5 border border-gray-200 text-xs">
+                  <Package className="h-3.5 w-3.5 text-[#E31837]" />
+                  <select
+                    value={filterSkuId}
+                    onChange={(e) => setFilterSkuId(e.target.value)}
+                    className="bg-transparent text-gray-800 text-xs font-bold focus:outline-none cursor-pointer max-w-[180px] truncate"
+                  >
+                    <option value="ALL">Tất cả phiên SKU</option>
+                    <option value="OUT_OF_SESSION">⚪ Ngoài phiên / Không gắn SKU</option>
+                    {skus.map((sku) => (
+                      <option key={sku.id} value={sku.id}>
+                        📦 {sku.code} - {sku.name}
+                      </option>
+                    ))}
+                  </select>
+                  {filterSkuId !== 'ALL' && (
+                    <button
+                      onClick={() => setFilterSkuId('ALL')}
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      title="Bỏ lọc SKU"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-1.5 bg-gray-50 rounded-xl px-2.5 py-1.5 border border-gray-200 text-xs">
                   <Calendar className="h-3.5 w-3.5 text-[#E31837]" />
                   <input
@@ -1625,6 +1812,22 @@ export function LossModule() {
                     <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                       <div className="space-y-1.5 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {log.skuId ? (
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-red-50 text-red-700 border border-red-200 px-2.5 py-0.5 text-[11px] font-bold">
+                              <Package className="h-3 w-3" />
+                              <span>
+                                {skus.find((s) => s.id === log.skuId)?.code || log.skuId} - {skus.find((s) => s.id === log.skuId)?.name || ''}
+                              </span>
+                              {log.runtimeSessionId && (
+                                <span className="opacity-75 font-mono text-[10px]">(Phiên: {log.runtimeSessionId.slice(-6)})</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 text-[11px] font-medium">
+                              <span className="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
+                              <span>Ngoài phiên / Không gắn SKU</span>
+                            </span>
+                          )}
                           <span className="rounded-lg bg-red-50 text-[#E31837] border border-red-200 px-2.5 py-0.5 text-xs font-bold">
                             {log.lossGroup}
                           </span>
@@ -1679,7 +1882,44 @@ export function LossModule() {
                     </div>
 
                     {/* Bottom: Action bar */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 flex-wrap">
+                      {impacts.some(
+                        (imp) =>
+                          imp.confirmationStatus === 'PROVISIONAL' ||
+                          imp.confirmationStatus === 'INSUFFICIENT_DATA' ||
+                          imp.confirmationStatus === 'UNREVIEWED' ||
+                          imp.impactPercent === null ||
+                          (log.lossGroup === 'CIP' && imp.impactType === 'NONE' && !imp.userModifiedRule)
+                      ) && (
+                        <button
+                          onClick={() => {
+                            setQuickConfirmEventId(log.id);
+                            const targetImp =
+                              impacts.find(
+                                (i) =>
+                                  i.confirmationStatus === 'INSUFFICIENT_DATA' ||
+                                  i.confirmationStatus === 'PROVISIONAL' ||
+                                  i.confirmationStatus === 'UNREVIEWED' ||
+                                  i.impactPercent === null
+                              ) || impacts[0];
+                            if (targetImp) {
+                              setQuickConfirmImpactId(targetImp.impactId);
+                              setQuickConfirmImpactType(targetImp.impactType || 'NONE');
+                              setQuickConfirmPercent(targetImp.impactPercent ?? (targetImp.impactType === 'NONE' ? 0 : 50));
+                              setQuickConfirmNote(targetImp.note || '');
+                            } else {
+                              setQuickConfirmImpactId(null);
+                              setQuickConfirmImpactType('NONE');
+                              setQuickConfirmPercent(0);
+                              setQuickConfirmNote('');
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs transition-colors cursor-pointer"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>⚡ Xác nhận ảnh hưởng thực tế</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => setDetailModalLog(log)}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer shadow-2xs"
@@ -1893,6 +2133,149 @@ export function LossModule() {
           </div>
         </div>
       )}
+
+      {/* QUICK CONFIRM MODAL FOR FACT CONFIRMATION (CIP / BUFFER / INSUFFICIENT DATA) */}
+      {quickConfirmEventId && (() => {
+        const targetEvent = lossLogs.find((l) => l.id === quickConfirmEventId);
+        if (!targetEvent) return null;
+        const isCipEvent = targetEvent.lossGroup === 'CIP';
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in">
+            <div className="w-full max-w-lg rounded-3xl border border-gray-200 bg-white shadow-2xl p-6 space-y-4 text-xs">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                    <AlertTriangle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-gray-900 text-sm">
+                      Xác Nhận Ảnh Hưởng Vận Hành Thực Tế (FACT)
+                    </h3>
+                    <p className="text-[11px] text-gray-500">
+                      {targetEvent.downtimeReason || targetEvent.lossGroup} · Thiết bị: {targetEvent.equipmentId}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setQuickConfirmEventId(null)}
+                  className="text-gray-400 hover:text-gray-700 p-1 cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* FACT Warning for CIP */}
+              {isCipEvent && (
+                <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-amber-900 space-y-1">
+                  <strong className="block text-xs font-bold text-amber-800">
+                    Quy tắc FACT cho CIP: Không tự động áp dừng nấu 100%!
+                  </strong>
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    Vui lòng xác nhận thực tế tại line:
+                    <br />• <strong>Không ảnh hưởng (0%):</strong> CIP tuần hoàn đường ống cô lập, các nồi khác vẫn nấu bình thường.
+                    <br />• <strong>Dừng nấu (100%):</strong> Phải dừng hẳn việc nấu để CIP toàn bộ line hoặc cụm nồi chính.
+                    <br />• <strong>Giảm công suất / Dừng cấp tương:</strong> Chỉ ảnh hưởng một phần công đoạn.
+                  </p>
+                </div>
+              )}
+
+              {/* Impact Type Selection */}
+              <div className="space-y-2">
+                <label className="font-bold text-gray-700 block">Chọn loại ảnh hưởng vận hành thực tế:</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    { type: 'NONE' as ImpactType, label: 'NONE - Không ảnh hưởng', desc: '0% Loss quy đổi', defaultPct: 0 },
+                    { type: 'REDUCE_COOK_CAPACITY' as ImpactType, label: 'Giảm công suất nấu', desc: 'Nồi dừng lẻ, 25-75%', defaultPct: 50 },
+                    { type: 'STOP_COOK' as ImpactType, label: 'Dừng nấu 100%', desc: 'Dừng toàn bộ cụm nấu', defaultPct: 100 },
+                    { type: 'STOP_FEED_PACKING' as ImpactType, label: 'Dừng cấp tương', desc: 'Đóng gói thiếu tương', defaultPct: 100 },
+                    { type: 'COOLING_BUFFER_CONGESTION' as ImpactType, label: 'Nghẽn bồn đệm / Cooling', desc: 'Tắc bồn chứa', defaultPct: 50 },
+                    { type: 'STOP_PACKING' as ImpactType, label: 'Dừng đóng gói 100%', desc: 'Máy rót / dán nhãn dừng', defaultPct: 100 },
+                  ].map((opt) => {
+                    const isSelected = quickConfirmImpactType === opt.type;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.type}
+                        onClick={() => {
+                          setQuickConfirmImpactType(opt.type);
+                          setQuickConfirmPercent(opt.defaultPct);
+                        }}
+                        className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-[#E31837] bg-red-50 text-gray-900 font-bold'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="text-xs font-bold text-gray-900">{opt.label}</div>
+                        <div className="text-[10px] text-gray-500">{opt.desc}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Impact Percent Selector (if not NONE) */}
+              {quickConfirmImpactType !== 'NONE' && (
+                <div className="space-y-1.5">
+                  <label className="font-bold text-gray-700 block">
+                    Mức độ ảnh hưởng công suất: <span className="font-mono text-[#E31837] font-black">{quickConfirmPercent}%</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {[25, 50, 75, 100].map((pct) => (
+                      <button
+                        type="button"
+                        key={pct}
+                        onClick={() => setQuickConfirmPercent(pct)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                          quickConfirmPercent === pct
+                            ? 'bg-[#E31837] text-white border-[#E31837]'
+                            : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Note */}
+              <div className="space-y-1">
+                <label className="font-bold text-gray-700 block">Ghi chú xác nhận thực tế tại hiện trường:</label>
+                <input
+                  type="text"
+                  value={quickConfirmNote}
+                  onChange={(e) => setQuickConfirmNote(e.target.value)}
+                  placeholder="VD: Tuần hoàn ống nhánh lúc 10h15, nồi 1 và 2 vẫn nấu bình thường..."
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-xs text-gray-900 focus:border-[#E31837] focus:outline-none"
+                />
+              </div>
+
+              <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickConfirmEventId(null)}
+                  className="px-4 py-2 rounded-xl border border-gray-200 font-bold text-gray-600 hover:bg-gray-50 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const targetImpId = quickConfirmImpactId || targetEvent.impacts?.[0]?.impactId || 'IMP_0';
+                    handleQuickConfirmImpact(targetEvent.id, targetImpId);
+                  }}
+                  className="px-5 py-2 rounded-xl bg-[#E31837] hover:bg-red-700 font-bold text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Xác nhận & Cập nhật FACT</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

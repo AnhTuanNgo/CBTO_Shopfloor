@@ -203,7 +203,8 @@ interface AppStoreContextType {
     eventId: string,
     impactId: string,
     percent: number | null,
-    note?: string
+    note?: string,
+    newImpactType?: ImpactType
   ) => { success: boolean; message?: string };
   deleteImpact: (eventId: string, impactId: string) => { success: boolean; message?: string };
 
@@ -1709,14 +1710,17 @@ export function AppStoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const confirmImpact = useCallback(
-    (eventId: string, impactId: string, percent: number | null, note?: string) => {
+    (eventId: string, impactId: string, percent: number | null, note?: string, newImpactType?: ImpactType) => {
       setLossLogs((prev) => {
         const next = prev.map((item) => {
           if (item.id === eventId) {
             const nextImpacts = (item.impacts || []).map((imp) => {
               if (imp.impactId === impactId) {
+                const updatedType = newImpactType || imp.impactType;
                 const updated = {
                   ...imp,
+                  impactType: updatedType,
+                  impactScope: getImpactScope(updatedType),
                   impactPercent: percent,
                   note: note !== undefined ? note : imp.note,
                   confirmedBy: currentUser.uid,

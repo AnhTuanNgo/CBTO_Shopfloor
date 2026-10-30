@@ -400,6 +400,9 @@ export interface ScopeMetricItem {
   totalConvertedLossMinutes: number;
   rawSumConvertedLossMinutes: number;
   overlapSavedMinutes: number;
+  duplicateSavedMinutes: number;
+  capacityCapSavedMinutes: number;
+  coOccurringIndependentEquipments: number;
   hasInsufficientData: boolean;
   impactCount: number;
 }
@@ -407,18 +410,20 @@ export interface ScopeMetricItem {
 /**
  * Calculates sum of converted loss for a list of impacts, grouped by scope.
  * Prevents naive cross-scope summation.
- * Accurately handles time-overlapping impacts on the same line to avoid double-counting
- * capacity loss in the same timeframe (capped at 100% operational capacity per line).
+ * Accurately handles time-overlapping impacts:
+ * 1. Differentiates duplicate reports on the same physical equipment (taking MAX capacity)
+ * 2. Combines independent physical equipment losses operating in parallel
+ * 3. Caps aggregate capacity loss at 100% of the line operational capacity
  */
 export function calculateScopeLossMetrics(
   impacts: EventImpactItem[],
   nowMs: number = Date.now()
 ): Record<ImpactScope, ScopeMetricItem> {
   const scopes: Record<ImpactScope, ScopeMetricItem> = {
-    'Nấu': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
-    'Cấp tương': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
-    'Đóng gói': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
-    'Khác': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, hasInsufficientData: false, impactCount: 0 },
+    'Nấu': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, duplicateSavedMinutes: 0, capacityCapSavedMinutes: 0, coOccurringIndependentEquipments: 0, hasInsufficientData: false, impactCount: 0 },
+    'Cấp tương': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, duplicateSavedMinutes: 0, capacityCapSavedMinutes: 0, coOccurringIndependentEquipments: 0, hasInsufficientData: false, impactCount: 0 },
+    'Đóng gói': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, duplicateSavedMinutes: 0, capacityCapSavedMinutes: 0, coOccurringIndependentEquipments: 0, hasInsufficientData: false, impactCount: 0 },
+    'Khác': { totalDurationMinutes: 0, totalConvertedLossMinutes: 0, rawSumConvertedLossMinutes: 0, overlapSavedMinutes: 0, duplicateSavedMinutes: 0, capacityCapSavedMinutes: 0, coOccurringIndependentEquipments: 0, hasInsufficientData: false, impactCount: 0 },
   };
 
   const scopeKeys: ImpactScope[] = ['Nấu', 'Cấp tương', 'Đóng gói', 'Khác'];
@@ -452,6 +457,9 @@ export function calculateScopeLossMetrics(
 
     let totalScopeDedupConvertedLoss = 0;
     let totalScopeDedupDuration = 0;
+    let totalScopeDuplicateSaved = 0;
+    let totalScopeCapSaved = 0;
+    let maxCoOccurringEqs = 0;
 
     // Process each line independently with time-slice deduplication
     Object.values(lineGroupMap).forEach((lineImpacts) => {
@@ -459,6 +467,7 @@ export function calculateScopeLossMetrics(
         startMs: number;
         endMs: number;
         percent: number;
+        equipmentKey: string;
       }
 
       const validIntervals: IntervalItem[] = [];
@@ -470,7 +479,8 @@ export function calculateScopeLossMetrics(
         if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) return;
 
         const percent = imp.impactPercent !== null && imp.impactPercent !== undefined ? imp.impactPercent : 0;
-        validIntervals.push({ startMs, endMs, percent });
+        const eqKey = imp.affectedEquipmentId || imp.eventId || 'GENERIC_EQ';
+        validIntervals.push({ startMs, endMs, percent, equipmentKey: eqKey });
       });
 
       if (validIntervals.length === 0) return;
@@ -485,6 +495,8 @@ export function calculateScopeLossMetrics(
 
       let lineDedupLoss = 0;
       let lineDedupDuration = 0;
+      let lineDuplicateSaved = 0;
+      let lineCapSaved = 0;
 
       // Slice through contiguous timeline chunks
       for (let i = 0; i < sortedPoints.length - 1; i++) {
@@ -497,23 +509,52 @@ export function calculateScopeLossMetrics(
         const covering = validIntervals.filter((inv) => inv.startMs <= segStart && inv.endMs >= segEnd);
         if (covering.length === 0) continue;
 
-        // If at least one impact was active, duration adds up without double-counting elapsed time
         lineDedupDuration += segMinutes;
 
-        // Effective capacity loss capped at 100% of line capacity
-        const combinedPercent = covering.reduce((sum, inv) => sum + inv.percent, 0);
-        const effectivePercent = Math.min(100, Math.max(0, combinedPercent));
+        // Group covering intervals by physical equipment key
+        const byEquipment: Record<string, number[]> = {};
+        covering.forEach((inv) => {
+          if (!byEquipment[inv.equipmentKey]) byEquipment[inv.equipmentKey] = [];
+          byEquipment[inv.equipmentKey].push(inv.percent);
+        });
+
+        const independentCount = Object.keys(byEquipment).length;
+        if (independentCount > maxCoOccurringEqs) {
+          maxCoOccurringEqs = independentCount;
+        }
+
+        // For each physical equipment, take MAX percent (eliminating duplicate reports on the same physical unit)
+        let equipmentSumPercent = 0;
+        let rawEquipmentSum = 0;
+        Object.values(byEquipment).forEach((percents) => {
+          const maxEq = Math.max(...percents);
+          equipmentSumPercent += maxEq;
+          rawEquipmentSum += percents.reduce((a, b) => a + b, 0);
+        });
+
+        const duplicateDifference = Math.max(0, rawEquipmentSum - equipmentSumPercent);
+        lineDuplicateSaved += (segMinutes * duplicateDifference) / 100;
+
+        // Across independent physical equipments, sum their contributions up to 100% capacity limit of the line
+        const effectivePercent = Math.min(100, Math.max(0, equipmentSumPercent));
+        const capDifference = Math.max(0, equipmentSumPercent - effectivePercent);
+        lineCapSaved += (segMinutes * capDifference) / 100;
 
         lineDedupLoss += (segMinutes * effectivePercent) / 100;
       }
 
       totalScopeDedupConvertedLoss += lineDedupLoss;
       totalScopeDedupDuration += lineDedupDuration;
+      totalScopeDuplicateSaved += lineDuplicateSaved;
+      totalScopeCapSaved += lineCapSaved;
     });
 
     const finalConverted = Math.round(totalScopeDedupConvertedLoss);
     scopes[scope].totalConvertedLossMinutes = finalConverted;
     scopes[scope].totalDurationMinutes = Math.round(totalScopeDedupDuration);
+    scopes[scope].duplicateSavedMinutes = Math.round(totalScopeDuplicateSaved);
+    scopes[scope].capacityCapSavedMinutes = Math.round(totalScopeCapSaved);
+    scopes[scope].coOccurringIndependentEquipments = maxCoOccurringEqs;
     scopes[scope].overlapSavedMinutes = Math.max(0, scopes[scope].rawSumConvertedLossMinutes - finalConverted);
   });
 

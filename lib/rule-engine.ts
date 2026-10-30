@@ -60,6 +60,18 @@ export function evaluateRuleSuggestions(ctx: RuleContext): RuleSuggestion[] {
     }
   }
 
+  // Rule CIP: CIP không mặc định dừng nấu 100%
+  if (ctx.lossGroup === 'CIP' || reason.includes('cip') || desc.includes('cip')) {
+    suggestions.push({
+      ruleId: 'RULE_CIP_CONFIRMATION_REQUIRED',
+      title: 'Sự kiện CIP: Không mặc định dừng nấu 100% (Yêu cầu xác nhận FACT)',
+      suggestedImpactType: 'NONE',
+      suggestedPercent: 0,
+      rationale: 'Chu trình CIP có thể là CIP tuần hoàn độc lập (không dừng nấu/không dừng ĐG) hoặc dừng cục bộ. Hệ thống không tự động áp đặt 100% dừng nấu.',
+      warningNote: 'Bắt buộc người dùng kiểm tra: Nếu CIP gây dừng nấu thực tế, chuyển sang "Dừng nấu" hoặc "Giảm năng lực nấu"; nếu ĐG vẫn chạy từ buffer, không chọn Dừng Đóng Gói.',
+    });
+  }
+
   // Rule 2: Đóng gói không nhận được tương / Tắc đường cấp tương
   if (
     reason.includes('thiếu tương cấp') ||
